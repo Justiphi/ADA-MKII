@@ -10,7 +10,6 @@
   <ItemGroup>
     <PackageReference Include="ElevenLabs-DotNet" Version="1.3.5" />
     <PackageReference Include="OpenAI" Version="1.7.2" />
-    <PackageReference Include="Wolfram.Alpha" Version="1.0.7" />
   </ItemGroup>
 
 </Project>

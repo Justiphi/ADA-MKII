@@ -20,5 +20,10 @@
 
             SemanticScreenReader.Announce(CounterBtn.Text);
         }
+
+        private void btnSettings_Clicked(object sender, EventArgs e)
+        {
+            Shell.Current.GoToAsync("Settings");
+        }
     }
 }
