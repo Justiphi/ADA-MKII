@@ -10,6 +10,7 @@ namespace ADA_MKII_UI
     public partial class MainPage : ContentPage
     {
         int count = 0;
+        private CancellationTokenSource tokenSource = new CancellationTokenSource();
 
         public MainPage()
         {
@@ -41,10 +42,10 @@ namespace ADA_MKII_UI
 
         private async Task Listen()
         {
-            var isGranted = await SpeechToText.Default.RequestPermissions(CancellationToken.None);
+            var isGranted = await SpeechToText.Default.RequestPermissions(tokenSource.Token);
             if (!isGranted)
             {
-                await Toast.Make("Permission not granted").Show(CancellationToken.None);
+                await Toast.Make("Permission not granted").Show(tokenSource.Token);
                 return;
             }
             var recognitionResult = await SpeechToText.Default.ListenAsync(
@@ -52,7 +53,7 @@ namespace ADA_MKII_UI
                                                 new Progress<string>(partialText =>
                                                 {
                                                     RecognitionText += partialText + " ";
-                                                }), CancellationToken.None);
+                                                }), tokenSource.Token);
             if (recognitionResult.IsSuccessful)
             {
                 RecognitionText = recognitionResult.Text;
@@ -61,13 +62,18 @@ namespace ADA_MKII_UI
             }
             else
             {
-                await Toast.Make(recognitionResult.Exception?.Message ?? "Unable to recognize speech").Show(CancellationToken.None);
+                await Toast.Make(recognitionResult.Exception?.Message ?? "Unable to recognize speech").Show(tokenSource.Token);
             }
         }
 
         private void btnListen_Clicked(object sender, EventArgs e)
         {
             _ = Listen();
+        }
+
+        private void btnStopListen_Clicked(object sender, EventArgs e)
+        {
+            tokenSource?.Cancel();
         }
     }
 }

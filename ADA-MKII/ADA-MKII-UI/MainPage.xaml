@@ -43,6 +43,12 @@
                 Text="Listen" 
                 Clicked="btnListen_Clicked" 
                 HorizontalOptions="Center" />
+            
+            <Button
+                x:Name="btnStopListen"
+                Text="Stop Listen" 
+                Clicked="btnStopListen_Clicked" 
+                HorizontalOptions="Center" />
 
         </VerticalStackLayout>
     </ScrollView>
