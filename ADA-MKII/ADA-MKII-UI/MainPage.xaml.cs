@@ -29,8 +29,6 @@ namespace ADA_MKII_UI
                 CounterBtn.Text = $"Clicked {count} times";
 
             TextToSpeech.Default.SpeakAsync(CounterBtn.Text);
-
-            SemanticScreenReader.Announce(CounterBtn.Text);
         }
 
         private void btnSettings_Clicked(object sender, EventArgs e)
@@ -42,23 +40,33 @@ namespace ADA_MKII_UI
 
         private async Task Listen()
         {
+            tokenSource = new CancellationTokenSource();
+            RecognitionText = string.Empty;
+
             var isGranted = await SpeechToText.Default.RequestPermissions(tokenSource.Token);
             if (!isGranted)
             {
                 await Toast.Make("Permission not granted").Show(tokenSource.Token);
                 return;
             }
-            var recognitionResult = await SpeechToText.Default.ListenAsync(
-                                                CultureInfo.GetCultureInfo("en-au"),
-                                                new Progress<string>(partialText =>
-                                                {
-                                                    RecognitionText += partialText + " ";
-                                                }), tokenSource.Token);
-            if (recognitionResult.IsSuccessful)
-            {
-                RecognitionText = recognitionResult.Text;
 
-                await TextToSpeech.Default.SpeakAsync(recognitionResult.Text);
+
+            var recognitionResult = await SpeechToText.Default.ListenAsync(
+                CultureInfo.GetCultureInfo("en-us"),
+                new Progress<string>(partialText =>
+                {
+                    RecognitionText += partialText + " ";
+#if WINDOWS
+    tokenSource.CancelAfter(500);
+#endif
+                }), tokenSource.Token);
+
+            if (recognitionResult.IsSuccessful || recognitionResult.Exception is TaskCanceledException)
+            {
+                if (!string.IsNullOrEmpty(RecognitionText))
+                {
+                    await TextToSpeech.Default.SpeakAsync(RecognitionText);
+                }
             }
             else
             {
