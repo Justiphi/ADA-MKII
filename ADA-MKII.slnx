@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="ADA-MKII-API/ADA-MKII-API.csproj" />
+  <Project Path="ADA-MKII-Core/ADA-MKII-Core.csproj" />
+  <Project Path="ADA-MKII-Data/ADA-MKII-Data.csproj" />
+  <Project Path="ADA-MKII-Discord/ADA-MKII-Discord.csproj" />
+  <Project Path="ADA-MKII-UI/ADA-MKII-UI.csproj">
+    <Deploy Solution="Debug|*" />
+  </Project>
+</Solution>
