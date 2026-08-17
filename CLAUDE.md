@@ -156,7 +156,9 @@ All interfaces live in `ADA_MKII_Core.Abstractions`.
 
 Bind config with the options pattern and `.ValidateDataAnnotations().ValidateOnStart()` so a missing key fails at boot, not at first request.
 
-**Client token storage:** MAUI → `SecureStorage`; Web head → server-side config, never sent to the browser; Discord → environment variable.
+**Client token storage:** MAUI → `SecureStorage` under the key `MauiProgram.DeviceTokenKey`; Web head → `Ada:Client:Token` in server-side config (user-secrets in dev), read on the server and never rendered into the browser; Discord → environment variable.
+
+The MAUI head reaches the server at `localhost:5100` on Windows but **`10.0.2.2:5100` on Android** — the emulator's alias for the host loopback. A physical device needs the LAN or public address instead; see `ServerBaseAddress` in `MauiProgram.cs`.
 
 ### Getting the first token
 
@@ -265,7 +267,7 @@ Critical path is **0 → 1 → 2 → 3 → 4**. Voice, Android and Discord are l
 1. **Skeleton — COMPLETE.** Created `Server`, `Web`, `UI-Shared`; wired all eight `ProjectReference` edges; stripped the MAUI sample (78 files down to 20); retargeted TFMs; dropped Syncfusion, both SQLite packages and `CommunityToolkit.Mvvm`; converted the MAUI head to Blazor Hybrid. All eight projects build clean with **zero warnings**, and the MAUI `TreatWarningsAsErrors` opt-out has been removed. The `NU1903` advisory is gone with `SQLitePCLRaw`.
 2. **Data + Server foundation — COMPLETE.** `AdaDbContext` with `Conversation`, `Message`, `Setting` and `DeviceToken`; `APIKey` dropped; EF SQLite → SqlServer; `InitialCreate` migration applied. Server has `/health` (anonymous), device-token bearer auth, ProblemDetails, Serilog, rate limiting, and `/api/conversations` + `/api/settings`. Verified end to end against SQL Server.
 3. **LLM end-to-end — COMPLETE.** `AssistantPipeline` in Core, `OpenAiLlmProvider` in API, `POST /api/chat` as SSE, and the HTTP client (`HttpConversationStore`, `HttpSettingsStore`, `HttpAssistantPipeline`). Cost controls are in from the start: max output tokens, history trimming, per-message token persistence and a monthly token budget. **ADA works here with no UI at all.** When no provider key is configured the server falls back to `EchoLlmProvider`, so the pipeline is runnable and testable without a credential.
-4. **Blazor UI.** Build the chat UI in `UI-Shared`. Bring it up on the **Web head first** (fast inner loop, hot reload, no device deploy), then host the identical RCL in `BlazorWebView` on Windows.
+4. **Blazor UI — COMPLETE (web head).** `Chat.razor` in `UI-Shared`: streaming reply, Stop, New chat, per-turn token display, and typed error handling for auth failure and an unreachable server. Both heads compose `AddAdaClient()` + `AddAdaSharedUi()`. Verified in the browser end to end. The MAUI head is wired and builds but **has not been run** — see the note below.
 5. **Voice.** MAUI STT/TTS + Windows mic permission + the partial-result workaround; then Web Speech interop; then optional server-side ElevenLabs.
 6. **Android head.** Manifest permissions, `ApplicationId`, reaching the VPS over HTTPS from a phone.
 7. **Deployment.** SQL Server on the VPS, systemd units for Server and Web, reverse proxy + Let's Encrypt, `dotnet ef migrations bundle`, backups.

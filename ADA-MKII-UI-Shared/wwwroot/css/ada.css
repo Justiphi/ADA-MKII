@@ -23,10 +23,12 @@ body {
     font-family: "OpenSans-Regular", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
+/* A fixed height, not min-height: the chat log scrolls inside the shell, and a
+   min-height would let the page itself grow instead. */
 .ada-shell {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    height: 100vh;
 }
 
 .ada-header {
@@ -55,8 +57,152 @@ body {
     font-size: 1.5rem;
 }
 
-.ada-main p {
+/* The main region becomes the chat's flex container, so the composer can pin
+   to the bottom while the log scrolls independently. */
+.ada-main {
+    display: flex;
+    min-height: 0;
+}
+
+/* ---- Chat ---- */
+
+.chat {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    gap: 0.75rem;
+}
+
+.chat-toolbar {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.chat-new {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
     color: var(--ada-muted);
-    max-width: 60ch;
-    line-height: 1.6;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.chat-new:hover:not(:disabled) {
+    color: var(--ada-text);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.chat-new:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.chat-log {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-right: 0.25rem;
+}
+
+.chat-empty {
+    color: var(--ada-muted);
+    margin: auto;
+    text-align: center;
+}
+
+.bubble {
+    max-width: min(46rem, 85%);
+    padding: 0.7rem 0.95rem;
+    border-radius: 0.9rem;
+    line-height: 1.55;
+}
+
+/* white-space: pre-wrap preserves the model's own line breaks without letting
+   long unbroken strings blow out the layout. */
+.bubble-body {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.bubble.user {
+    align-self: flex-end;
+    background-color: var(--ada-accent);
+    color: #0b1220;
+    border-bottom-right-radius: 0.25rem;
+}
+
+.bubble.assistant {
+    align-self: flex-start;
+    background-color: var(--ada-surface);
+    border-bottom-left-radius: 0.25rem;
+}
+
+.bubble.system {
+    align-self: center;
+    background: none;
+    color: var(--ada-muted);
+    font-size: 0.85rem;
+}
+
+.bubble-meta {
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+    opacity: 0.55;
+}
+
+.chat-error {
+    align-self: stretch;
+    padding: 0.7rem 0.95rem;
+    border-radius: 0.6rem;
+    background-color: rgba(255, 96, 96, 0.12);
+    border: 1px solid rgba(255, 96, 96, 0.35);
+    color: #ffb4b4;
+}
+
+.composer {
+    display: flex;
+    gap: 0.5rem;
+    padding-top: 0.25rem;
+}
+
+.composer-input {
+    flex: 1;
+    padding: 0.7rem 0.9rem;
+    border-radius: 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background-color: var(--ada-surface);
+    color: var(--ada-text);
+    font: inherit;
+}
+
+.composer-input:focus {
+    outline: 2px solid var(--ada-accent);
+    outline-offset: -1px;
+}
+
+.composer-button {
+    padding: 0.7rem 1.3rem;
+    border: none;
+    border-radius: 0.7rem;
+    background-color: var(--ada-accent);
+    color: #0b1220;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.composer-button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.composer-button.stop {
+    background-color: var(--ada-surface);
+    color: var(--ada-text);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }

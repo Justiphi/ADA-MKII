@@ -10,6 +10,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>ADA_MKII_Web</RootNamespace>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <!-- The device token goes in user-secrets, never in appsettings.json. -->
+    <UserSecretsId>ada-mkii-web</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

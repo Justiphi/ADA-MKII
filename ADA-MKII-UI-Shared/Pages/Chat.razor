@@ -1,0 +1,197 @@
+@page "/"
+@using ADA_MKII_Core.Abstractions
+@using ADA_MKII_Core.Client
+@using ADA_MKII_Core.Contracts
+@using ADA_MKII_UI_Shared.Models
+@using System.Net.Http
+@implements IAsyncDisposable
+@inject IAssistantPipeline Pipeline
+
+<PageTitle>ADA</PageTitle>
+
+<div class="chat">
+
+    <div class="chat-toolbar">
+        <button type="button" class="chat-new" @onclick="NewConversation" disabled="@(_busy || _turns.Count == 0)">
+            New chat
+        </button>
+    </div>
+
+    <div class="chat-log" role="log" aria-live="polite">
+        @if (_turns.Count == 0 && !_busy)
+        {
+            <p class="chat-empty">Ask ADA something to get started.</p>
+        }
+
+        @foreach (var turn in _turns)
+        {
+            <div class="bubble @RoleClass(turn.Role)">
+                <div class="bubble-body">@turn.Content@(turn.IsStreaming ? "▋" : string.Empty)</div>
+                @if (turn.TokensIn + turn.TokensOut > 0)
+                {
+                    <div class="bubble-meta">@turn.TokensIn in / @turn.TokensOut out</div>
+                }
+            </div>
+        }
+
+        @if (_error is not null)
+        {
+            <div class="chat-error" role="alert">@_error</div>
+        }
+    </div>
+
+    <form class="composer" @onsubmit="SendAsync" @onsubmit:preventDefault>
+        @* Enter is handled explicitly rather than relying on the form's implicit
+           submission, which does not fire reliably here - and a chat UI where
+           Enter does not send is broken. Shift+Enter is left free for when this
+           becomes a multi-line textarea. *@
+        <input class="composer-input"
+               @bind="_draft"
+               @bind:event="oninput"
+               @onkeydown="OnKeyDownAsync"
+               placeholder="Message ADA"
+               aria-label="Message ADA"
+               disabled="@_busy" />
+
+        @if (_busy)
+        {
+            <button type="button" class="composer-button stop" @onclick="Stop">Stop</button>
+        }
+        else
+        {
+            <button type="submit" class="composer-button" disabled="@string.IsNullOrWhiteSpace(_draft)">Send</button>
+        }
+    </form>
+
+</div>
+
+@code {
+    private readonly List<ChatTurn> _turns = [];
+
+    private string _draft = string.Empty;
+    private bool _busy;
+    private string? _error;
+    private Guid? _conversationId;
+    private CancellationTokenSource? _cts;
+
+    private static string RoleClass(ChatRole role) => role switch
+    {
+        ChatRole.User => "user",
+        ChatRole.Assistant => "assistant",
+        _ => "system",
+    };
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && !args.ShiftKey)
+        {
+            // SendAsync guards on _busy, so this cannot double-fire if the form's
+            // own submit also happens to reach us.
+            await SendAsync();
+        }
+    }
+
+    private async Task SendAsync()
+    {
+        var message = _draft.Trim();
+        if (message.Length == 0 || _busy)
+        {
+            return;
+        }
+
+        _draft = string.Empty;
+        _error = null;
+        _busy = true;
+
+        // Show the user's message immediately rather than waiting for the round
+        // trip: the server has already been told to persist it.
+        _turns.Add(new ChatTurn { Role = ChatRole.User, Content = message });
+
+        var reply = new ChatTurn { Role = ChatRole.Assistant, IsStreaming = true };
+        _turns.Add(reply);
+
+        _cts = new CancellationTokenSource();
+
+        try
+        {
+            await foreach (var evt in Pipeline.RunAsync(new ChatRequest(_conversationId, message), _cts.Token))
+            {
+                switch (evt.Type)
+                {
+                    case ChatStreamEvent.DeltaType:
+                        reply.Content += evt.Text;
+                        break;
+
+                    case ChatStreamEvent.DoneType:
+                        _conversationId = evt.ConversationId ?? _conversationId;
+                        reply.TokensIn = evt.TokensIn ?? 0;
+                        reply.TokensOut = evt.TokensOut ?? 0;
+                        break;
+
+                    case ChatStreamEvent.ErrorType:
+                        _error = evt.Error;
+                        break;
+
+                    default:
+                        break;
+                }
+
+                // Repaint per delta - this is what makes the reply appear to type.
+                StateHasChanged();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The user pressed Stop. Keep whatever arrived; the turn is over.
+        }
+        catch (AdaApiException ex)
+        {
+            _error = ex.IsAuthFailure
+                ? "This device is not authorised. Check its access token."
+                : $"ADA could not respond: {ex.Message}";
+        }
+        catch (HttpRequestException)
+        {
+            _error = "Cannot reach the ADA server. Check that it is running.";
+        }
+        finally
+        {
+            reply.IsStreaming = false;
+
+            if (reply.Content.Length == 0)
+            {
+                _turns.Remove(reply);
+            }
+
+            _busy = false;
+            _cts?.Dispose();
+            _cts = null;
+            StateHasChanged();
+        }
+    }
+
+    private void Stop() => _cts?.Cancel();
+
+    /// <summary>
+    /// Starts a fresh thread. Clearing the id is enough: the server creates a new
+    /// conversation whenever a turn arrives without one.
+    /// </summary>
+    private void NewConversation()
+    {
+        _turns.Clear();
+        _conversationId = null;
+        _error = null;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // Cancel in flight work so a closed tab stops the turn server-side
+        // instead of streaming tokens nobody will read.
+        if (_cts is not null)
+        {
+            await _cts.CancelAsync();
+            _cts.Dispose();
+            _cts = null;
+        }
+    }
+}
