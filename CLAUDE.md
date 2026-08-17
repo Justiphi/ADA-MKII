@@ -225,40 +225,34 @@ Push-to-talk only. **No wake word** in phase 1 — the battery and false-trigger
 
 | Head | STT | TTS |
 |---|---|---|
-| MAUI (Win/Android) | **Not yet available — see below** | `Microsoft.Maui.Media.TextToSpeech.Default` ✅ |
+| MAUI (Win/Android) | **Whisper.net**, on-device, via `ISpeechRecognitionEngine` ✅ | `Microsoft.Maui.Media.TextToSpeech.Default` ✅ |
 | Web / Linux | JS module wrapping `webkitSpeechRecognition`, partials returned via `DotNetObjectReference` ✅ | `window.speechSynthesis` ✅ |
 | Web fallback (Firefox) | `MediaRecorder` → `POST /api/speech/stt` | `/api/speech/tts` → `audio/mpeg` in an `<audio>` element |
 | Discord | `NullSpeechToTextService` | `NullTextToSpeechService` |
 
-> **MAUI speech-to-text is blocked.** This document originally specified
-> `CommunityToolkit.Maui.Media.SpeechToText`. That API **no longer exists**: the
-> toolkit removed it before its .NET 10 line, and it is absent from 13.0.0,
-> 14.2.2 and 15.0.0 alike. Downgrading is not an option — versions that had it
-> target net9 only.
->
-> A survey of the alternatives found **no drop-in replacement package**. The only
-> MAUI-branded STT plugin (`Chant.SpeechKit.Maui`) tops out at net9 and is paid
-> commercial software; every Xamarin-era plugin targets `MonoAndroid`/`UAP`;
-> `Vosk` ships no Android binaries and is unmaintained since 2022.
->
-> The realistic routes are:
-> - **Platform APIs.** Android is easy — `Android.Speech.SpeechRecognizer` is in
->   the SDK bindings already, with `OnPartialResults` mapping cleanly onto
->   `IAsyncEnumerable<SpeechPartial>`. **Windows is the problem:**
->   `Windows.Media.SpeechRecognition` requires MSIX package identity and is
->   documented as unavailable to unpackaged apps, which this head is by design
->   (`WindowsPackageType=None`). The fallback, `System.Speech.Recognition`, works
->   unpackaged but is the legacy SAPI engine with noticeably worse accuracy.
-> - **Azure Speech SDK** (`Microsoft.CognitiveServices.Speech`) — the only
->   candidate with real Android binaries *and* true streaming partials, but it
->   needs a key on the device unless proxied through a short-lived token endpoint.
-> - **Server-side transcription** through `/api/speech/stt`, reusing the path
->   already planned for Firefox. One implementation serves every head, at the cost
->   of sending audio off-device and paying per minute.
->
-> Until one is chosen the MAUI head registers `NullSpeechToTextService`, which
-> reports `IsSupported = false` so the UI hides the microphone rather than
-> offering a button that cannot work.
+### Why Whisper on MAUI, and the seam around it
+
+This document originally specified `CommunityToolkit.Maui.Media.SpeechToText`. That API **no longer exists** — the toolkit removed it before its .NET 10 line, and it is absent from 13.0.0, 14.2.2 and 15.0.0 alike. Downgrading is not open either, since versions that had it target net9 only.
+
+A survey found no drop-in replacement: the only MAUI-branded STT plugin tops out at net9 and is paid commercial software, every Xamarin-era plugin targets `MonoAndroid`/`UAP`, and `Vosk` ships no Android binaries. Of the platform APIs, Android's `SpeechRecognizer` is fine but **Windows is blocked** — `Windows.Media.SpeechRecognition` requires MSIX package identity and is documented as unavailable to unpackaged apps, which this head is by design.
+
+**Whisper.net** was chosen because it runs on-device on both targets, needs no key, and keeps audio on the device — the principle this architecture already commits to for speech.
+
+The seam is deliberate, because this choice may not be permanent:
+
+```
+UI  →  ISpeechToTextService            (Core; the only thing the UI sees)
+       └─ EngineSpeechToTextService    (Core; wiring, identical on every head)
+            ├─ IAudioCapture           (head; microphone, platform work)
+            └─ ISpeechRecognitionEngine (SWAPPABLE — Whisper today, Azure later)
+```
+
+Adding Azure Speech means writing one `ISpeechRecognitionEngine` and changing one registration. Nothing above that interface knows which engine is running.
+
+**Known costs of Whisper, and they are real:**
+- **No interim results.** Whisper transcribes a finished recording, so the user sees their words once, at the end, rather than as they speak. `SupportsInterimResults` reports this honestly. Azure Speech is the streaming alternative if that matters more than staying on-device.
+- **A ~140 MB model** is downloaded on first use and cached, rather than shipped in the app package.
+- **No 32-bit ARM.** The native binaries cover `android-arm64-v8a`, `android-x86`, `android-x86_64` and `win-x64/arm64/x86`. `IsSupported` checks the architecture so the microphone is hidden rather than failing at first use.
 
 **ElevenLabs is opt-in, not default** — gated on the `Voice:UseElevenLabs` setting. On-device TTS is free and lower-latency; this is a direct cost control.
 

@@ -4,6 +4,7 @@ using ADA_MKII_Core.Speech;
 using ADA_MKII_UI.Auth;
 using ADA_MKII_UI.Speech;
 using ADA_MKII_UI_Shared;
+using Plugin.Maui.Audio;
 using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 
@@ -49,12 +50,13 @@ public static class MauiProgram
         // Voice. Synthesis uses MAUI Essentials and works today.
         builder.Services.AddSingleton<ITextToSpeechService, MauiTextToSpeechService>();
 
-        // Recognition is NOT yet implemented on this head. CommunityToolkit.Maui
-        // removed its SpeechToText API before the .NET 10 line, so the approach
-        // CLAUDE.md assumed is no longer available and a replacement has to be
-        // chosen. Registering the null service keeps the UI honest: it hides the
-        // microphone rather than offering a button that cannot work.
-        builder.Services.AddSingleton<ISpeechToTextService, NullSpeechToTextService>();
+        // Recognition: microphone + engine, composed by Core. Swapping Whisper for
+        // Azure Speech later means changing this one registration - nothing above
+        // ISpeechRecognitionEngine knows which engine is in use.
+        builder.Services.AddSingleton(AudioManager.Current);
+        builder.Services.AddSingleton<IAudioCapture, MauiAudioCapture>();
+        builder.Services.AddSingleton<ISpeechRecognitionEngine, WhisperRecognitionEngine>();
+        builder.Services.AddSingleton<ISpeechToTextService, EngineSpeechToTextService>();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

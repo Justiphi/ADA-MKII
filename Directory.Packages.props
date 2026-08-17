@@ -63,6 +63,20 @@
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.90" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.11" />
     <PackageVersion Include="CommunityToolkit.Maui" Version="15.0.0" />
+    <!-- Microphone capture. The package targets net9 platform TFMs, which a net10
+         platform TFM resolves against. -->
+    <PackageVersion Include="Plugin.Maui.Audio" Version="4.0.0" />
+  </ItemGroup>
+
+  <!--
+    On-device speech recognition. Whisper.net is the managed API; the Runtime
+    package carries the native binaries - android-arm64-v8a/x86/x86_64 and
+    win-x64/arm64/x86. Note there is NO armeabi-v7a: 32-bit ARM Android devices
+    are not supported.
+  -->
+  <ItemGroup>
+    <PackageVersion Include="Whisper.net" Version="1.9.1" />
+    <PackageVersion Include="Whisper.net.Runtime" Version="1.9.1" />
   </ItemGroup>
 
 </Project>

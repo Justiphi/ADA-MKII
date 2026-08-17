@@ -62,6 +62,14 @@
 		<PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" />
 		<PackageReference Include="CommunityToolkit.Maui" />
+
+		<!-- On-device speech recognition. See CLAUDE.md for why this rather than a
+		     platform API: the toolkit's speech API is gone, no MAUI plugin targets
+		     .NET 10, and Windows cannot use Windows.Media.SpeechRecognition while
+		     the app is unpackaged. -->
+		<PackageReference Include="Plugin.Maui.Audio" />
+		<PackageReference Include="Whisper.net" />
+		<PackageReference Include="Whisper.net.Runtime" />
 	</ItemGroup>
 
 	<ItemGroup>
