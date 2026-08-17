@@ -5,4 +5,17 @@
     <RootNamespace>ADA_MKII_Core</RootNamespace>
   </PropertyGroup>
 
+  <!--
+    Core references NO project and must never take a dependency on EF Core,
+    MAUI, ASP.NET Core hosting, or a provider SDK. It carries the typed HTTP
+    client SDK that every head uses to reach ADA-MKII-Server.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+  </ItemGroup>
+
 </Project>

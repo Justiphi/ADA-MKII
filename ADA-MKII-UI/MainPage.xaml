@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:b="clr-namespace:Microsoft.AspNetCore.Components.WebView.Maui;assembly=Microsoft.AspNetCore.Components.WebView.Maui"
+             xmlns:shared="clr-namespace:ADA_MKII_UI_Shared;assembly=ADA-MKII-UI-Shared"
+             x:Class="ADA_MKII_UI.MainPage"
+             BackgroundColor="#17171a">
+
+    <!-- The entire UI. Routes lives in ADA-MKII-UI-Shared and is the same
+         component ADA-MKII-Web renders, so the two heads cannot drift apart. -->
+    <b:BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
+        <b:BlazorWebView.RootComponents>
+            <b:RootComponent Selector="#app" ComponentType="{x:Type shared:Routes}" />
+        </b:BlazorWebView.RootComponents>
+    </b:BlazorWebView>
+
+</ContentPage>

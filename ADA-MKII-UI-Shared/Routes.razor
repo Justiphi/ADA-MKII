@@ -1,0 +1,13 @@
+@*
+    Shared router. Both heads render this component:
+      - ADA-MKII-Web  via Components/App.razor
+      - ADA-MKII-UI   via MainPage.xaml's BlazorWebView root component
+    Routable pages live in this assembly, so AppAssembly resolves them for both.
+*@
+
+<Router AppAssembly="@typeof(Routes).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+</Router>

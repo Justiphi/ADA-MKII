@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The one UI codebase, shared by the MAUI head (BlazorWebView) and the Linux
+    web head (Blazor Server). Per CLAUDE.md this project must contain NO
+    platform-conditional code and must NEVER reference Microsoft.Maui.*:
+    if it does, ADA-MKII-Web stops compiling. That is the enforcement mechanism.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>ADA_MKII_UI_Shared</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SupportedPlatform Include="browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ADA-MKII-Core\ADA-MKII-Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,62 @@
+/*
+   Shared UI styling for both heads. Served from the RCL at
+   _content/ADA-MKII-UI-Shared/css/ada.css - both ADA-MKII-Web and the MAUI
+   BlazorWebView link this same file, so the two heads cannot drift apart.
+*/
+
+:root {
+    --ada-bg: #17171a;
+    --ada-surface: #202024;
+    --ada-text: #f2f2f3;
+    --ada-muted: #9a9aa2;
+    --ada-accent: #4f8cff;
+    --ada-header-height: 3.5rem;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background-color: var(--ada-bg);
+    color: var(--ada-text);
+    font-family: "OpenSans-Regular", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.ada-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.ada-header {
+    display: flex;
+    align-items: center;
+    height: var(--ada-header-height);
+    padding: 0 1rem;
+    background-color: var(--ada-surface);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ada-wordmark {
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: var(--ada-accent);
+}
+
+.ada-main {
+    flex: 1;
+    padding: 1.5rem 1rem;
+}
+
+.ada-main h1 {
+    margin-top: 0;
+    font-size: 1.5rem;
+}
+
+.ada-main p {
+    color: var(--ada-muted);
+    max-width: 60ch;
+    line-height: 1.6;
+}

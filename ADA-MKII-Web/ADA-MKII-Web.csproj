@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    Linux head. Serves the shared Razor components over Blazor Server so ADA has
+    a GUI on Linux, which MAUI cannot target. Reaches the API through Core's
+    HTTP client - it must never reference ADA-MKII-Data, -API or -Server.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>ADA_MKII_Web</RootNamespace>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ADA-MKII-Core\ADA-MKII-Core.csproj" />
+    <ProjectReference Include="..\ADA-MKII-UI-Shared\ADA-MKII-UI-Shared.csproj" />
+  </ItemGroup>
+
+</Project>

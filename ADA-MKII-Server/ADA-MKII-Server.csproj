@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    INBOUND HTTP API, hosted on the VPS. Not to be confused with ADA-MKII-API,
+    which is the OUTBOUND integrations library. This is the only project
+    permitted to reference ADA-MKII-Data and ADA-MKII-API, and the only process
+    that holds SQL credentials and provider keys.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>ADA_MKII_Server</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ADA-MKII-Core\ADA-MKII-Core.csproj" />
+    <ProjectReference Include="..\ADA-MKII-API\ADA-MKII-API.csproj" />
+    <ProjectReference Include="..\ADA-MKII-Data\ADA-MKII-Data.csproj" />
+  </ItemGroup>
+
+</Project>

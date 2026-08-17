@@ -37,7 +37,7 @@ These are closed. Do not reopen them without an explicit instruction.
 | `ADA-MKII-Data` | `Microsoft.NET.Sdk` | `net10.0` | EF Core + SQL Server, `AdaDbContext`, entities, migrations. **Server-only.** |
 | `ADA-MKII-Server` | `Microsoft.NET.Sdk.Web` | `net10.0` | Minimal API hosted on the VPS. The only process holding secrets. |
 | `ADA-MKII-UI-Shared` | `Microsoft.NET.Sdk.Razor` | `net10.0` | Razor Class Library — every component, page and CSS. Shared by both UI heads. |
-| `ADA-MKII-UI` | MAUI | `net10.0-android;net10.0-windows10.0.19041.0` | Blazor Hybrid host + device STT/TTS/SecureStorage. |
+| `ADA-MKII-UI` | `Microsoft.NET.Sdk.Razor` + `UseMaui` | `net10.0-android;net10.0-windows10.0.19041.0` | Blazor Hybrid host + device STT/TTS/SecureStorage. |
 | `ADA-MKII-Web` | `Microsoft.NET.Sdk.Web` | `net10.0` | Blazor Server head for Linux. Web Speech API interop. |
 | `ADA-MKII-Discord` | `Microsoft.NET.Sdk` (Worker) | `net10.0` | Discord.Net bot, text only. **Lowest priority.** |
 
@@ -234,7 +234,10 @@ On Windows, `SpeechToText.ListenAsync` can stall after emitting its first partia
 | `.editorconfig` | **Done.** File-scoped namespaces required, `_camelCase` private fields, sorted usings, IDE0055 as a warning. **CA1707 is suppressed** — it fires on the `ADA_MKII_*` namespaces, which are deliberate. |
 | `nuget.config` | **Done.** `<clear/>` + nuget.org only, so machine-level feeds cannot surprise a different box or CI. |
 | `ADA-MKII.slnx` | **Keep.** Add the three new projects to it. |
-| `ApplicationId` | **Change** `com.companyname.adamkiiui` to a real reverse-DNS id **before any Android install** — changing it later orphans installed app data. |
+| `ApplicationId` | **Set** to `io.github.justiphi.ada`. Change it before the first Android install if a real domain becomes available — changing it later orphans installed app data. |
+| MAUI project SDK | **`Microsoft.NET.Sdk.Razor`**, not the base SDK. `BlazorWebView` hooks into the static web assets targets, and the base SDK fails with `MSB4057: StaticWebAssetsPrepareForRun does not exist`. |
+| Android min API | **24.0**, not the MAUI default of 21 — `AddMauiBlazorWebView()` is only supported on Android 24+. |
+| Dev ports | Server `5100`/`7100`, Web `5200`/`7200`. Set deliberately so the two ASP.NET processes never collide. |
 | `Syncfusion.Maui.Toolkit` | **Remove.** XAML-only, therefore dead weight under Blazor Hybrid, and it requires a registered licence key at runtime. |
 | Testing | xUnit v3 + NSubstitute + Shouldly in a `tests/` folder. Deferred — not part of the initial 8-project graph. **Avoid FluentAssertions**, v8+ is commercially licensed. |
 
@@ -243,8 +246,7 @@ On Windows, `SpeechToText.ListenAsync` can stall after emitting its first partia
 Critical path is **0 → 1 → 2 → 3 → 4**. Voice, Android and Discord are leaves.
 
 0. **Repo hygiene — COMPLETE.** This file plus `Directory.Build.props`, `Directory.Packages.props`, `global.json`, `.editorconfig`, `nuget.config`; hoisted properties and package versions out of all five csprojs. The four non-MAUI projects build clean with zero warnings under warnings-as-errors. *Set the compiler policy all later code is written under.*
-1. **Skeleton.** Create `Server`, `Web`, `UI-Shared`; wire every `ProjectReference`; strip the MAUI sample (delete `Pages/`, `PageModels/`, `Models/`, `Data/`, `Utilities/`, `Services/`; keep `Resources/`); retarget TFMs; drop Syncfusion and the SQLite packages; add `Microsoft.AspNetCore.Components.WebView.Maui`. Everything compiles, nothing does anything yet.
-   **Note:** dropping `SQLitePCLRaw.bundle_green` also clears a live `NU1903` high-severity advisory on `SQLitePCLRaw.lib.e_sqlite3` 2.1.11, which the MAUI build currently reports. Once the sample is gone, remove the `TreatWarningsAsErrors=false` opt-out from `ADA-MKII-UI.csproj` — all ~140 current MAUI warnings live in sample code being deleted.
+1. **Skeleton — COMPLETE.** Created `Server`, `Web`, `UI-Shared`; wired all eight `ProjectReference` edges; stripped the MAUI sample (78 files down to 20); retargeted TFMs; dropped Syncfusion, both SQLite packages and `CommunityToolkit.Mvvm`; converted the MAUI head to Blazor Hybrid. All eight projects build clean with **zero warnings**, and the MAUI `TreatWarningsAsErrors` opt-out has been removed. The `NU1903` advisory is gone with `SQLitePCLRaw`.
 2. **Data + Server foundation.** Replace `Model.cs` with a top-level `AdaDbContext` (`Conversation`, `Message`, `Setting`); drop `APIKey`; swap EF Sqlite → SqlServer; connection string from config; first migration. Server gets `/health`, bearer auth, ProblemDetails, Serilog. *Blocks every head.*
 3. **LLM end-to-end.** Core pipeline, `OpenAiLlmProvider` with streaming, `POST /api/chat` as SSE, the HTTP client. **ADA first works here, with no UI at all** — prove it with `curl`.
 4. **Blazor UI.** Build the chat UI in `UI-Shared`. Bring it up on the **Web head first** (fast inner loop, hot reload, no device deploy), then host the identical RCL in `BlazorWebView` on Windows.

@@ -5,6 +5,10 @@
     <RootNamespace>ADA_MKII_API</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ADA-MKII-Core\ADA-MKII-Core.csproj" />
+  </ItemGroup>
+
   <!-- OUTBOUND integrations only: clients ADA calls. The inbound HTTP API is ADA-MKII-Server. -->
   <ItemGroup>
     <PackageReference Include="ElevenLabs-DotNet" />

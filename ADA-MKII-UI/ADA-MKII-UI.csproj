@@ -1,41 +1,32 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<!-- Microsoft.NET.Sdk.Razor (not the base SDK) is required for BlazorWebView:
+     it supplies the static web assets targets the WebView package hooks into. -->
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+	<!--
+		MAUI head. A thin Blazor Hybrid host: the UI itself lives in
+		ADA-MKII-UI-Shared and is rendered inside a BlazorWebView. This project
+		owns only the device-specific pieces - STT/TTS, SecureStorage, permissions.
+		iOS and MacCatalyst are deliberately not targeted; see CLAUDE.md.
+	-->
 
 	<PropertyGroup>
 		<TargetFrameworks>net10.0-android</TargetFrameworks>
-		<TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('linux'))">$(TargetFrameworks);net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
 		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
-
-		<!-- Note for MacCatalyst:
-		The default runtime is maccatalyst-x64, except in Release config, in which case the default is maccatalyst-x64;maccatalyst-arm64.
-		When specifying both architectures, use the plural <RuntimeIdentifiers> instead of the singular <RuntimeIdentifier>.
-		The Mac App Store will NOT accept apps with ONLY maccatalyst-arm64 indicated;
-		either BOTH runtimes must be indicated or ONLY macatalyst-x64. -->
-		<!-- For example: <RuntimeIdentifiers>maccatalyst-x64;maccatalyst-arm64</RuntimeIdentifiers> -->
 
 		<OutputType>Exe</OutputType>
 		<RootNamespace>ADA_MKII_UI</RootNamespace>
 		<UseMaui>true</UseMaui>
 		<SingleProject>true</SingleProject>
 
-		<!-- Opt out of the solution-wide warnings-as-errors: the MAUI XAML source
-		     generators emit warnings we do not control. Revisit once the sample
-		     content is stripped in phase 1. -->
-		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-
-		<!-- Enable XAML source generation for faster build times and improved performance.
-		     This generates C# code from XAML at compile time instead of runtime inflation.
-		     To disable, remove this line.
-		     For individual files, you can override by setting Inflator metadata:
-		       <MauiXaml Update="MyPage.xaml" Inflator="Default" /> (reverts to defaults: Runtime for Debug, XamlC for Release)
-		       <MauiXaml Update="MyPage.xaml" Inflator="Runtime" /> (force runtime inflation) -->
 		<MauiXamlInflator>SourceGen</MauiXamlInflator>
 		<MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
 
 		<!-- Display name -->
-		<ApplicationTitle>ADA-MKII-UI</ApplicationTitle>
+		<ApplicationTitle>ADA</ApplicationTitle>
 
-		<!-- App Identifier -->
-		<ApplicationId>com.companyname.adamkiiui</ApplicationId>
+		<!-- App Identifier. Change this before the first Android install if you own
+		     a domain - changing it later orphans installed app data. -->
+		<ApplicationId>io.github.justiphi.ada</ApplicationId>
 
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
@@ -44,9 +35,9 @@
 		<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
 		<WindowsPackageType>None</WindowsPackageType>
 
-		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
-		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
-		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
+		<!-- API 24 (Nougat), not the MAUI default of 21: BlazorWebView is only
+		     supported on Android 24.0 and later. -->
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
 	</PropertyGroup>
@@ -58,9 +49,8 @@
 		<!-- Splash Screen -->
 		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#17171a" BaseSize="128,128" />
 
-		<!-- Images -->
-		<MauiImage Include="Resources\Images\*" />
-		<!-- Custom Fonts -->
+		<!-- Custom Fonts. Also declared as @font-face in the shared stylesheet:
+		     under Blazor Hybrid the WebView needs the CSS declaration, not just this. -->
 		<MauiFont Include="Resources\Fonts\*" />
 
 		<!-- Raw Assets (also remove the "Resources\Raw" prefix) -->
@@ -69,15 +59,14 @@
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Maui.Controls" />
+		<PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" />
+		<PackageReference Include="CommunityToolkit.Maui" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="CommunityToolkit.Mvvm" />
-		<PackageReference Include="CommunityToolkit.Maui" />
-		<PackageReference Include="Microsoft.Data.Sqlite.Core" />
-		<PackageReference Include="SQLitePCLRaw.bundle_green" />
-		<PackageReference Include="Syncfusion.Maui.Toolkit" />
+		<ProjectReference Include="..\ADA-MKII-Core\ADA-MKII-Core.csproj" />
+		<ProjectReference Include="..\ADA-MKII-UI-Shared\ADA-MKII-UI-Shared.csproj" />
 	</ItemGroup>
-	
+
 </Project>
