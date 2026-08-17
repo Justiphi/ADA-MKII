@@ -186,6 +186,36 @@ only discovers routable pages in its own assembly. Pages live in
 **`Your startup project doesn't reference Microsoft.EntityFrameworkCore.Design`** —
 see the migrations section above; it belongs in `ADA-MKII-Server` too.
 
+**`APT2000: ... res.zip: No such file or directory`** — stale Android
+intermediates, usually after a TFM or package change. Nothing is wrong with the
+code. Delete `ADA-MKII-UI/obj` and `ADA-MKII-UI/bin` and rebuild.
+
+**`CA2024: do not use 'reader.EndOfStream' in an async method`** — it blocks the
+thread and stalls on an open-but-idle stream, which is exactly what an SSE
+connection is. Loop on the read instead:
+`while (await reader.ReadLineAsync(ct) is { } line)`.
+
+## Testing the chat stream
+
+`POST /api/chat` returns server-sent events, so a buffering client makes a
+working stream look broken. Read with `HttpCompletionOption.ResponseHeadersRead`
+and consume line by line; each event arrives as `data: {json}`.
+
+With no provider key configured the server uses `EchoLlmProvider`, which streams
+a canned reply with a small inter-word delay. That is the point: the whole
+pipeline — streaming, persistence, token accounting, the spend guard — is
+exercisable without a credential or a bill. Timestamps on arriving deltas are
+the quickest way to confirm streaming is genuine rather than one delayed lump.
+
+To exercise the **spend guard**, set the budget below what has already been used
+this month and send a turn — it must be refused before any model call:
+
+```bash
+curl -X PUT http://localhost:5100/api/settings/cost.monthlyTokenBudget -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"value":"1"}'
+```
+
+Restore it afterwards. `0` disables the guard entirely.
+
 ## Adding a new package
 
 Versions are managed centrally. Add a `<PackageVersion>` to

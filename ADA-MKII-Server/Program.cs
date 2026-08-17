@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using ADA_MKII_API;
 using ADA_MKII_Core;
 using ADA_MKII_Core.Abstractions;
 using ADA_MKII_Core.Security;
@@ -29,7 +30,8 @@ builder.Services.AddOptions<AdaAuthOptions>()
     .ValidateOnStart();
 
 // This is the ONLY process that holds the SQL credentials and provider API keys.
-builder.Services.AddAdaCore();
+builder.Services.AddAdaCore(builder.Configuration);
+builder.Services.AddAdaProviders(builder.Configuration);
 builder.Services.AddAdaData(connectionString);
 
 builder.Services.AddAuthentication(DeviceTokenAuthenticationHandler.SchemeName)
@@ -68,6 +70,7 @@ app.MapGet(ApiRoutes.Health, () => Results.Ok(new { status = "ok" })).AllowAnony
 
 app.MapConversationEndpoints();
 app.MapSettingsEndpoints();
+app.MapChatEndpoints();
 
 await SeedBootstrapTokenAsync(app);
 

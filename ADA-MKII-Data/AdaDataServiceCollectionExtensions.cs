@@ -23,6 +23,7 @@ public static class AdaDataServiceCollectionExtensions
         services.AddScoped<IConversationStore, SqlConversationStore>();
         services.AddScoped<ISettingsStore, SqlSettingsStore>();
         services.AddScoped<IDeviceTokenStore, SqlDeviceTokenStore>();
+        services.AddScoped<IUsageStore, SqlUsageStore>();
 
         return services;
     }

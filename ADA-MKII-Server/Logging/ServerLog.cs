@@ -13,4 +13,10 @@ internal static partial class ServerLog
         Level = LogLevel.Information,
         Message = "Registered bootstrap device token {Name}.")]
     public static partial void BootstrapTokenRegistered(ILogger logger, string name);
+
+    [LoggerMessage(
+        EventId = 1001,
+        Level = LogLevel.Error,
+        Message = "Chat stream failed after the response had begun.")]
+    public static partial void ChatStreamFailed(ILogger logger, Exception exception);
 }

@@ -2,7 +2,7 @@ namespace ADA_MKII_Core.Contracts;
 
 /// <summary>
 /// A single message on the wire. Token counts are persisted per message so the
-/// spend guard in <see cref="SettingKeys.MonthlyBudgetUsd"/> has something to
+/// spend guard in <see cref="SettingKeys.MonthlyTokenBudget"/> has something to
 /// measure - see CLAUDE.md on cost control.
 /// </summary>
 public sealed record ChatMessageDto(

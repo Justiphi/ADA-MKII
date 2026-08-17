@@ -1,3 +1,6 @@
+using ADA_MKII_Core.Abstractions;
+using ADA_MKII_Core.Pipeline;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ADA_MKII_Core;
@@ -6,14 +9,22 @@ namespace ADA_MKII_Core;
 public static class AdaCoreServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the domain services Core owns. Phase 3 adds the assistant
-    /// pipeline, tool registry and intent dispatcher here.
+    /// Registers the assistant pipeline and its options. Phase 3 scope; the tool
+    /// registry and intent dispatcher slot in alongside these.
     /// </summary>
-    public static IServiceCollection AddAdaCore(this IServiceCollection services)
+    public static IServiceCollection AddAdaCore(this IServiceCollection services, IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddSingleton(TimeProvider.System);
+
+        services.AddOptions<AssistantOptions>()
+            .Bind(configuration.GetSection(AssistantOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddScoped<IAssistantPipeline, AssistantPipeline>();
 
         return services;
     }

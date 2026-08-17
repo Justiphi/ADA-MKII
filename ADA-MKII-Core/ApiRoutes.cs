@@ -9,6 +9,9 @@ public static class ApiRoutes
 {
     public const string Health = "/health";
 
+    /// <summary>Streams a conversational turn as server-sent events.</summary>
+    public const string Chat = "/api/chat";
+
     public static class Conversations
     {
         public const string Base = "/api/conversations";
