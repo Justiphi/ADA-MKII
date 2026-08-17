@@ -1,0 +1,33 @@
+<Project>
+
+  <!--
+    Solution-wide compiler policy. Individual csproj files should NOT redeclare
+    Nullable, ImplicitUsings or LangVersion - change them here instead.
+  -->
+
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      Correctness warnings are errors. Style rules (IDE*) are deliberately NOT
+      enforced at build time - they are enforced by `dotnet format`, so a stray
+      blank line can never break a build. Do not set EnforceCodeStyleInBuild here
+      without also carving the IDE codes out of TreatWarningsAsErrors.
+    -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Product>ADA</Product>
+    <Company>Travis Wylie</Company>
+    <Authors>Travis Wylie</Authors>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+</Project>

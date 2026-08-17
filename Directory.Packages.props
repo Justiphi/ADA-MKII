@@ -1,0 +1,41 @@
+<Project>
+
+  <!--
+    Central Package Management. Package VERSIONS live here and nowhere else;
+    csproj files carry only <PackageReference Include="..." /> with no Version attribute.
+    Version drift between projects is the top multi-project bug source - see CLAUDE.md.
+  -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <!-- Outbound integrations (ADA-MKII-API) -->
+  <ItemGroup>
+    <PackageVersion Include="ElevenLabs-DotNet" Version="3.7.2" />
+    <PackageVersion Include="OpenAI" Version="2.13.0" />
+  </ItemGroup>
+
+  <!-- Data access (ADA-MKII-Data). Swaps to .SqlServer in phase 2. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.11" />
+  </ItemGroup>
+
+  <!-- Discord bot (ADA-MKII-Discord) -->
+  <ItemGroup>
+    <PackageVersion Include="Discord.Net" Version="3.20.1" />
+  </ItemGroup>
+
+  <!-- MAUI head (ADA-MKII-UI). Syncfusion and the SQLite pair are removed in phase 1. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.90" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.11" />
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="CommunityToolkit.Maui" Version="15.0.0" />
+    <PackageVersion Include="Microsoft.Data.Sqlite.Core" Version="10.0.11" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_green" Version="2.1.11" />
+    <PackageVersion Include="Syncfusion.Maui.Toolkit" Version="1.0.10" />
+  </ItemGroup>
+
+</Project>

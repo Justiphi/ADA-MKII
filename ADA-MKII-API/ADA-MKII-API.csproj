@@ -3,13 +3,12 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>ADA_MKII_API</RootNamespace>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- OUTBOUND integrations only: clients ADA calls. The inbound HTTP API is ADA-MKII-Server. -->
   <ItemGroup>
-    <PackageReference Include="ElevenLabs-DotNet" Version="3.7.2" />
-    <PackageReference Include="OpenAI" Version="2.13.0" />
+    <PackageReference Include="ElevenLabs-DotNet" />
+    <PackageReference Include="OpenAI" />
   </ItemGroup>
 
 </Project>
