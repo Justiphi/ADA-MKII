@@ -6,6 +6,7 @@ namespace ADA_MKII_Core.Contracts;
 /// </summary>
 public sealed record DeviceTokenDto(
     Guid Id,
+    Guid AccountId,
     string Name,
     DateTimeOffset CreatedUtc,
     DateTimeOffset? LastSeenUtc,

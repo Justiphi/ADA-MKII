@@ -195,7 +195,43 @@ thread and stalls on an open-but-idle stream, which is exactly what an SSE
 connection is. Loop on the read instead:
 `while (await reader.ReadLineAsync(ct) is { } line)`.
 
-## Inspecting the MAUI window
+**`MSB3027: could not copy … locked by ADA-MKII-Web`** — a head is still running
+from a previous preview. Stop it before rebuilding.
+
+**`XamlParseException: No matching constructor found on type 'MainWindow'`** —
+`App.xaml` still has `StartupUri`. A window with constructor injection must be
+created in `App.OnStartup` after the service provider exists, and `StartupUri`
+must be removed or WPF races ahead and news it up with no arguments.
+
+**Requests go out unauthenticated even though the user is signed in** —
+almost certainly a `DelegatingHandler` resolving a scoped service.
+`IHttpClientFactory` builds handlers in the handler pool's own DI scope, not the
+caller's, so a handler that injects `ISessionStore` gets a different instance
+than the one login wrote to. Attach the token inside the typed client (see
+`AuthenticatedHttpClient`), which *is* resolved from the calling scope.
+
+## Managing accounts
+
+`ADA-MKII-DataManager` is the only way to create an account — the API has no
+registration endpoint. It connects straight to SQL Server, so run it only
+somewhere trusted.
+
+```bash
+dotnet user-secrets set "ConnectionStrings:Ada" "<connection string>" --project ADA-MKII-DataManager
+```
+
+It reports connection state and pending migrations in its status bar at startup,
+so a schema mismatch is visible before you touch anything.
+
+To check a login end to end afterwards:
+
+```bash
+curl -s -X POST http://localhost:5100/api/auth/login -H "Content-Type: application/json" -d '{"username":"someone","password":"..."}'
+```
+
+The response carries the bearer token **once**; only its hash is stored.
+
+## Inspecting a WPF or MAUI window
 
 The MAUI head is a desktop app, so browser tooling cannot see it. Build and run
 it, then capture the window with `PrintWindow` and the `PW_RENDERFULLCONTENT`

@@ -1,11 +1,40 @@
 @inherits LayoutComponentBase
+@implements IDisposable
+@using ADA_MKII_Core.Abstractions
+@using ADA_MKII_UI_Shared.Services
+@inject SessionState Session
+@inject IAuthClient Auth
+@inject NavigationManager Navigation
 
 <div class="ada-shell">
     <header class="ada-header">
         <span class="ada-wordmark">ADA</span>
+
+        @if (Session.IsSignedIn)
+        {
+            <div class="ada-account">
+                <span class="ada-account-name">@Session.Account!.DisplayName</span>
+                <button type="button" class="ada-signout" @onclick="SignOutAsync">Sign out</button>
+            </div>
+        }
     </header>
 
     <main class="ada-main">
         @Body
     </main>
 </div>
+
+@code {
+    protected override void OnInitialized() => Session.Changed += OnSessionChanged;
+
+    private void OnSessionChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task SignOutAsync()
+    {
+        await Auth.LogoutAsync(CancellationToken.None);
+        Session.SignedOut();
+        Navigation.NavigateTo("/login");
+    }
+
+    public void Dispose() => Session.Changed -= OnSessionChanged;
+}

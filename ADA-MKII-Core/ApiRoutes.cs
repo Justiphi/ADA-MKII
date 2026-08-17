@@ -12,6 +12,18 @@ public static class ApiRoutes
     /// <summary>Streams a conversational turn as server-sent events.</summary>
     public const string Chat = "/api/chat";
 
+    public static class Auth
+    {
+        /// <summary>Exchanges a username and password for a bearer token. Anonymous.</summary>
+        public const string Login = "/api/auth/login";
+
+        /// <summary>Revokes the token used to make the call.</summary>
+        public const string Logout = "/api/auth/logout";
+
+        /// <summary>Returns the account the current token belongs to.</summary>
+        public const string Me = "/api/auth/me";
+    }
+
     public static class Conversations
     {
         public const string Base = "/api/conversations";

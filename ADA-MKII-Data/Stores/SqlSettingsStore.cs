@@ -11,7 +11,7 @@ namespace ADA_MKII_Data.Stores;
 /// Server-side <see cref="ISettingsStore"/>. Values are stored as text; primitives
 /// round-trip via invariant culture and everything else via JSON.
 /// </summary>
-public sealed class SqlSettingsStore(AdaDbContext db, TimeProvider clock) : ISettingsStore
+public sealed class SqlSettingsStore(AdaDbContext db, IAccountContext account, TimeProvider clock) : ISettingsStore
 {
     public async Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken)
     {
@@ -19,10 +19,12 @@ public sealed class SqlSettingsStore(AdaDbContext db, TimeProvider clock) : ISet
 
         var raw = await db.Settings
             .AsNoTracking()
-            .Where(s => s.Key == key)
+            .Where(s => s.AccountId == account.AccountId && s.Key == key)
             .Select(s => s.Value)
             .FirstOrDefaultAsync(cancellationToken);
 
+        // A missing row is not an error: system-wide defaults come from
+        // configuration, so the caller falls back to those.
         return raw is null ? default : Deserialize<T>(raw);
     }
 
@@ -31,11 +33,19 @@ public sealed class SqlSettingsStore(AdaDbContext db, TimeProvider clock) : ISet
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
         var raw = Serialize(value);
-        var existing = await db.Settings.FirstOrDefaultAsync(s => s.Key == key, cancellationToken);
+        var accountId = account.AccountId;
+        var existing = await db.Settings
+            .FirstOrDefaultAsync(s => s.AccountId == accountId && s.Key == key, cancellationToken);
 
         if (existing is null)
         {
-            db.Settings.Add(new SettingEntity { Key = key, Value = raw, UpdatedUtc = clock.GetUtcNow() });
+            db.Settings.Add(new SettingEntity
+            {
+                AccountId = accountId,
+                Key = key,
+                Value = raw,
+                UpdatedUtc = clock.GetUtcNow(),
+            });
         }
         else
         {
@@ -50,6 +60,7 @@ public sealed class SqlSettingsStore(AdaDbContext db, TimeProvider clock) : ISet
     {
         var settings = await db.Settings
             .AsNoTracking()
+            .Where(s => s.AccountId == account.AccountId)
             .OrderBy(s => s.Key)
             .Select(s => new SettingDto(s.Key, s.Value))
             .ToListAsync(cancellationToken);

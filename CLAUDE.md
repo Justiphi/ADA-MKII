@@ -34,7 +34,8 @@ These are closed. Do not reopen them without an explicit instruction.
 |---|---|---|---|
 | `ADA-MKII-Core` | `Microsoft.NET.Sdk` | `net10.0` | Domain model, **all abstractions**, DTOs, `ApiRoutes`, orchestration pipeline, and the typed HTTP client SDK. |
 | `ADA-MKII-API` | `Microsoft.NET.Sdk` | `net10.0` | Outbound providers: OpenAI, ElevenLabs, weather. **Server-only.** |
-| `ADA-MKII-Data` | `Microsoft.NET.Sdk` | `net10.0` | EF Core + SQL Server, `AdaDbContext`, entities, migrations. **Server-only.** |
+| `ADA-MKII-Data` | `Microsoft.NET.Sdk` | `net10.0` | EF Core + SQL Server, `AdaDbContext`, entities, migrations. **Server-side only.** |
+| `ADA-MKII-DataManager` | `Microsoft.NET.Sdk` + `UseWPF` | `net10.0-windows` | Operator tool. Creates and administers accounts against the database directly. **The only way to create an account.** |
 | `ADA-MKII-Server` | `Microsoft.NET.Sdk.Web` | `net10.0` | Minimal API hosted on the VPS. The only process holding secrets. |
 | `ADA-MKII-UI-Shared` | `Microsoft.NET.Sdk.Razor` | `net10.0` | Razor Class Library — every component, page and CSS. Shared by both UI heads. |
 | `ADA-MKII-UI` | `Microsoft.NET.Sdk.Razor` + `UseMaui` | `net10.0-android;net10.0-windows10.0.19041.0` | Blazor Hybrid host + device STT/TTS/SecureStorage. |
@@ -111,7 +112,7 @@ Self-audit against these before finishing any change.
 
 1. **Core references no project.** Its only packages are `Microsoft.Extensions.{DependencyInjection,Logging,Options}.Abstractions` and `Microsoft.Extensions.Http[.Resilience]`.
 2. **Core defines every cross-project interface.** Implementations live in the project that owns the technology.
-3. **`Data` and `API` may be referenced only by `Server`.**
+3. **`Data` and `API` may be referenced only by `Server`** — plus `DataManager`, which references `Data`. That is the single deliberate exception: `DataManager` is a second server-side process, not a head, and it exists precisely to do what no client may. It therefore holds SQL credentials and **must only run somewhere trusted** — on the VPS, or over a VPN or SSH tunnel. Never install it on a shared or mobile device.
 4. **No head (`UI`, `Web`, `Discord`) may reference `Data`, `API`, or `Server`.**
 5. **`UI-Shared` contains no platform-conditional code** (`#if ANDROID` / `#if WINDOWS`) and **must not reference `Microsoft.Maui.*`**. If it does, the Web head stops compiling — that is the enforcement mechanism, and it is a feature.
 6. **Only `Server` reads provider secrets.** Heads hold exactly one secret: the device bearer token.
@@ -160,15 +161,22 @@ Bind config with the options pattern and `.ValidateDataAnnotations().ValidateOnS
 
 The MAUI head reaches the server at `localhost:5100` on Windows but **`10.0.2.2:5100` on Android** — the emulator's alias for the host loopback. A physical device needs the LAN or public address instead; see `ServerBaseAddress` in `MauiProgram.cs`.
 
-### Getting the first token
+### Accounts and login
 
-Device tokens live hashed in the `DeviceTokens` table, so there is a chicken-and-egg problem on a fresh database. `Ada:Auth:BootstrapToken` solves it: when set, the server registers that token under `Ada:Auth:BootstrapTokenName` at startup if the name is not already taken.
+Users sign in with a username and password. **Accounts are created only in `ADA-MKII-DataManager`** — the API has no registration endpoint, so there is no account-creation surface to attack no matter what a caller sends.
 
-```bash
-dotnet user-secrets set "Ada:Auth:BootstrapToken" "<a long random string>" --project ADA-MKII-Server
-```
+The flow:
 
-In production supply it as `Ada__Auth__BootstrapToken` from the systemd `EnvironmentFile`. Use `DeviceTokens.Generate()` in `ADA-MKII-Core` to mint one. **Migrations must be applied before first run** — the seeding step writes to the database and will fail fast if the schema is absent.
+1. An operator creates an account in DataManager. The password is hashed with PBKDF2-HMAC-SHA256 (`PasswordHasher` in Core); the hash format carries its own iteration count, so the cost can be raised later without invalidating existing passwords.
+2. A client posts credentials to `/api/auth/login`. On success the server mints a bearer token, stores only its SHA-256 hash, and returns the token **once**.
+3. Every later request carries that token. The auth handler resolves it to an account id, which becomes the principal's `NameIdentifier`.
+4. `IAccountContext` reads that id, and the SQL stores scope every query by it.
+
+Login verifies a password even when the username is unknown, against `PasswordHasher.DummyHash`. Skipping the hash for missing users would make response time a username oracle. `/api/auth/login` also carries a tighter rate limit than the rest of the API, because it is the one endpoint worth brute-forcing.
+
+**Disabling an account immediately invalidates its tokens** — the check is part of the token lookup query, not a second step. Changing a password revokes them too.
+
+**Where each head keeps its token:** MAUI → `SecureStorage`, surviving restarts; Web → server memory for the life of the Blazor circuit, never rendered into the browser (so a page reload means signing in again — deliberate, versus putting a bearer token in `localStorage`); Discord → environment variable.
 
 Local development connects to `(localdb)\MSSQLLocalDB`, configured in `appsettings.Development.json`. That connection string uses trusted auth and contains no secret, which is why it is safe to commit; the production one never is.
 

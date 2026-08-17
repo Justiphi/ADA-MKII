@@ -9,12 +9,17 @@ namespace ADA_MKII_Core.Client;
 /// Client-side <see cref="IConversationStore"/>, talking to ADA-MKII-Server over
 /// HTTPS. Deliberately the same interface as SqlConversationStore: UI code binds
 /// to the abstraction and neither knows nor cares which side of the wire it is on.
+///
+/// Note there is no account id anywhere in these calls - the bearer token says
+/// who we are, and the server scopes accordingly.
 /// </summary>
-public sealed class HttpConversationStore(HttpClient http) : IConversationStore
+public sealed class HttpConversationStore(HttpClient http, ISessionStore session)
+    : AuthenticatedHttpClient(http, session), IConversationStore
 {
     public async Task<ConversationDto> CreateAsync(string? title, CancellationToken cancellationToken)
     {
-        using var response = await http.PostAsJsonAsync(
+        using var response = await SendAsync(
+            HttpMethod.Post,
             ApiRoutes.Conversations.Base,
             new CreateConversationRequest(title),
             cancellationToken);
@@ -27,7 +32,7 @@ public sealed class HttpConversationStore(HttpClient http) : IConversationStore
 
     public async Task<ConversationDto?> GetAsync(Guid id, CancellationToken cancellationToken)
     {
-        using var response = await http.GetAsync(ApiRoutes.Conversations.ById(id), cancellationToken);
+        using var response = await SendAsync(HttpMethod.Get, ApiRoutes.Conversations.ById(id), null, cancellationToken);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
@@ -40,9 +45,13 @@ public sealed class HttpConversationStore(HttpClient http) : IConversationStore
 
     public async Task<IReadOnlyList<ConversationDto>> ListAsync(int limit, CancellationToken cancellationToken)
     {
-        using var response = await http.GetAsync($"{ApiRoutes.Conversations.Base}?limit={limit}", cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
+        using var response = await SendAsync(
+            HttpMethod.Get,
+            $"{ApiRoutes.Conversations.Base}?limit={limit}",
+            null,
+            cancellationToken);
 
+        await EnsureSuccessAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<List<ConversationDto>>(cancellationToken) ?? [];
     }
 
@@ -51,7 +60,8 @@ public sealed class HttpConversationStore(HttpClient http) : IConversationStore
         AppendMessageRequest request,
         CancellationToken cancellationToken)
     {
-        using var response = await http.PostAsJsonAsync(
+        using var response = await SendAsync(
+            HttpMethod.Post,
             ApiRoutes.Conversations.Messages(conversationId),
             request,
             cancellationToken);
@@ -67,7 +77,7 @@ public sealed class HttpConversationStore(HttpClient http) : IConversationStore
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
-        using var response = await http.DeleteAsync(ApiRoutes.Conversations.ById(id), cancellationToken);
+        using var response = await SendAsync(HttpMethod.Delete, ApiRoutes.Conversations.ById(id), null, cancellationToken);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
         {

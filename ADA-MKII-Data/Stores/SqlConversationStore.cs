@@ -8,8 +8,14 @@ namespace ADA_MKII_Data.Stores;
 /// <summary>
 /// Server-side <see cref="IConversationStore"/>. Returns Core DTOs, never EF
 /// entities - the mapping boundary lives here and nowhere else.
+///
+/// Every query is filtered by <see cref="IAccountContext.AccountId"/>. Reading
+/// the owner from the request context rather than from a parameter means a
+/// caller cannot ask for someone else's conversation: there is no argument in
+/// which to pass the wrong id.
 /// </summary>
-public sealed class SqlConversationStore(AdaDbContext db, TimeProvider clock) : IConversationStore
+public sealed class SqlConversationStore(AdaDbContext db, IAccountContext account, TimeProvider clock)
+    : IConversationStore
 {
     public async Task<ConversationDto> CreateAsync(string? title, CancellationToken cancellationToken)
     {
@@ -17,6 +23,7 @@ public sealed class SqlConversationStore(AdaDbContext db, TimeProvider clock) : 
         var entity = new ConversationEntity
         {
             Id = Guid.CreateVersion7(),
+            AccountId = account.AccountId,
             Title = string.IsNullOrWhiteSpace(title) ? "New conversation" : title.Trim(),
             CreatedUtc = now,
             UpdatedUtc = now,
@@ -33,7 +40,7 @@ public sealed class SqlConversationStore(AdaDbContext db, TimeProvider clock) : 
         var entity = await db.Conversations
             .AsNoTracking()
             .Include(c => c.Messages)
-            .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(c => c.Id == id && c.AccountId == account.AccountId, cancellationToken);
 
         if (entity is null)
         {
@@ -54,6 +61,7 @@ public sealed class SqlConversationStore(AdaDbContext db, TimeProvider clock) : 
 
         var entities = await db.Conversations
             .AsNoTracking()
+            .Where(c => c.AccountId == account.AccountId)
             .OrderByDescending(c => c.UpdatedUtc)
             .Take(take)
             .ToListAsync(cancellationToken);
@@ -70,7 +78,7 @@ public sealed class SqlConversationStore(AdaDbContext db, TimeProvider clock) : 
         ArgumentNullException.ThrowIfNull(request);
 
         var conversation = await db.Conversations
-            .FirstOrDefaultAsync(c => c.Id == conversationId, cancellationToken);
+            .FirstOrDefaultAsync(c => c.Id == conversationId && c.AccountId == account.AccountId, cancellationToken);
 
         if (conversation is null)
         {
@@ -99,7 +107,7 @@ public sealed class SqlConversationStore(AdaDbContext db, TimeProvider clock) : 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         var deleted = await db.Conversations
-            .Where(c => c.Id == id)
+            .Where(c => c.Id == id && c.AccountId == account.AccountId)
             .ExecuteDeleteAsync(cancellationToken);
 
         return deleted > 0;

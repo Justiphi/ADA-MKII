@@ -19,4 +19,18 @@ internal static partial class ServerLog
         Level = LogLevel.Error,
         Message = "Chat stream failed after the response had begun.")]
     public static partial void ChatStreamFailed(ILogger logger, Exception exception);
+
+    // Usernames are logged on auth events because that is what makes a brute-force
+    // attempt visible. Passwords and tokens never are.
+    [LoggerMessage(
+        EventId = 1002,
+        Level = LogLevel.Warning,
+        Message = "Failed login for {Username}.")]
+    public static partial void LoginFailed(ILogger logger, string username);
+
+    [LoggerMessage(
+        EventId = 1003,
+        Level = LogLevel.Information,
+        Message = "Login succeeded for {Username}; issued a token for {Device}.")]
+    public static partial void LoginSucceeded(ILogger logger, string username, string device);
 }

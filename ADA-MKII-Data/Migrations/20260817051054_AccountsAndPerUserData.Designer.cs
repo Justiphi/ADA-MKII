@@ -4,6 +4,7 @@ using ADA_MKII_Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ADA_MKII_Data.Migrations
 {
     [DbContext(typeof(AdaDbContext))]
-    partial class AdaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260817051054_AccountsAndPerUserData")]
+    partial class AccountsAndPerUserData
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -8,9 +8,9 @@ using Microsoft.Extensions.Options;
 namespace ADA_MKII_Server.Auth;
 
 /// <summary>
-/// Bearer-token authentication for a single-user assistant: one long random token
-/// per device, stored hashed and revocable by name. Full OAuth/Identity is weeks
-/// of work for a user count of one - see CLAUDE.md, "Risks and standing rules".
+/// Bearer-token authentication. A token is issued at login and identifies both
+/// the device and the account it acts as; the account id becomes the principal's
+/// NameIdentifier, which is what the data stores scope their queries by.
 /// </summary>
 public sealed class DeviceTokenAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -20,6 +20,9 @@ public sealed class DeviceTokenAuthenticationHandler(
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     public const string SchemeName = "DeviceToken";
+
+    /// <summary>Claim carrying the id of the token itself, so logout can revoke it.</summary>
+    public const string TokenIdClaim = "ada:tokenId";
 
     private const string BearerPrefix = "Bearer ";
 
@@ -46,7 +49,7 @@ public sealed class DeviceTokenAuthenticationHandler(
         if (device is null)
         {
             // Deliberately vague: do not tell a caller whether the token is
-            // unknown or merely revoked.
+            // unknown, revoked, or attached to a disabled account.
             return AuthenticateResult.Fail("Invalid bearer token.");
         }
 
@@ -54,7 +57,9 @@ public sealed class DeviceTokenAuthenticationHandler(
 
         var identity = new ClaimsIdentity(
             [
-                new Claim(ClaimTypes.NameIdentifier, device.Id.ToString()),
+                // The ACCOUNT id, not the token id - this is what scopes data access.
+                new Claim(ClaimTypes.NameIdentifier, device.AccountId.ToString()),
+                new Claim(TokenIdClaim, device.Id.ToString()),
                 new Claim(ClaimTypes.Name, device.Name),
             ],
             SchemeName);

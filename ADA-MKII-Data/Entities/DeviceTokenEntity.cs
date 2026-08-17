@@ -8,6 +8,11 @@ public sealed class DeviceTokenEntity
 {
     public Guid Id { get; set; }
 
+    /// <summary>The account this token acts as. Issued at login.</summary>
+    public Guid AccountId { get; set; }
+
+    public AccountEntity? Account { get; set; }
+
     /// <summary>Friendly name so a specific device can be revoked, e.g. "phone".</summary>
     public string Name { get; set; } = string.Empty;
 

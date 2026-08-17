@@ -1,0 +1,12 @@
+<Application x:Class="ADA_MKII_DataManager.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:ADA_MKII_DataManager">
+    <!--
+        Deliberately no StartupUri: MainWindow takes AdminService, so it is
+        constructed in App.OnStartup once the service provider exists. Restoring
+        StartupUri would make WPF try to new it up with a default constructor and
+        crash before any of that runs.
+    -->
+    <Application.Resources />
+</Application>

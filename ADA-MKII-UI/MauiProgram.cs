@@ -1,4 +1,6 @@
+using ADA_MKII_Core.Abstractions;
 using ADA_MKII_Core.Client;
+using ADA_MKII_UI.Auth;
 using ADA_MKII_UI_Shared;
 using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
@@ -19,9 +21,6 @@ public static class MauiProgram
         "http://localhost:5100";
 #endif
 
-    /// <summary>SecureStorage key holding this device's bearer token.</summary>
-    public const string DeviceTokenKey = "ada.deviceToken";
-
     public static MauiApp CreateMauiApp()
     {
         var builder = MauiApp.CreateBuilder();
@@ -41,17 +40,8 @@ public static class MauiProgram
 
         // The same UI as the web head, over the same abstractions. This project
         // supplies only what is device-specific.
-        builder.Services.AddAdaClient(options =>
-        {
-            options.BaseAddress = new Uri(ServerBaseAddress);
-
-            // Read per request rather than captured once, so a token stored after
-            // startup takes effect without restarting the app. Phase 5 replaces
-            // this with SecureStorageSecretStore.
-            options.TokenProvider = async _ =>
-                await SecureStorage.Default.GetAsync(DeviceTokenKey).ConfigureAwait(false);
-        });
-
+        builder.Services.AddAdaClient(options => options.BaseAddress = new Uri(ServerBaseAddress));
+        builder.Services.AddSingleton<ISessionStore, SecureStorageSessionStore>();
         builder.Services.AddAdaSharedUi();
 
         // Phase 5 adds MauiSpeechToTextService and MauiTextToSpeechService - the

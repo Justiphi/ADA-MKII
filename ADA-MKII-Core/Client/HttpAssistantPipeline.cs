@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using ADA_MKII_Core.Abstractions;
@@ -14,7 +13,8 @@ namespace ADA_MKII_Core.Client;
 /// shared UI consume one abstraction and remain oblivious to whether the
 /// orchestration is in-process or across the network.
 /// </summary>
-public sealed class HttpAssistantPipeline(HttpClient http) : IAssistantPipeline
+public sealed class HttpAssistantPipeline(HttpClient http, ISessionStore session)
+    : AuthenticatedHttpClient(http, session), IAssistantPipeline
 {
     private const string DataPrefix = "data:";
 
@@ -24,17 +24,14 @@ public sealed class HttpAssistantPipeline(HttpClient http) : IAssistantPipeline
         ChatRequest request,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        using var message = new HttpRequestMessage(HttpMethod.Post, ApiRoutes.Chat)
-        {
-            Content = JsonContent.Create(request),
-        };
-
         // ResponseHeadersRead is essential: the default buffers the whole
         // response, which would turn a stream into a single delayed lump.
-        using var response = await http.SendAsync(
-            message,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken);
+        using var response = await SendAsync(
+            HttpMethod.Post,
+            ApiRoutes.Chat,
+            request,
+            cancellationToken,
+            HttpCompletionOption.ResponseHeadersRead);
 
         await HttpConversationStore.EnsureSuccessAsync(response, cancellationToken);
 

@@ -1,0 +1,89 @@
+@page "/login"
+@using ADA_MKII_Core.Abstractions
+@using ADA_MKII_UI_Shared.Services
+@using System.Net.Http
+@inject IAuthClient Auth
+@inject SessionState Session
+@inject NavigationManager Navigation
+
+<PageTitle>Sign in — ADA</PageTitle>
+
+<div class="login">
+    <h1>Sign in</h1>
+
+    <form class="login-form" @onsubmit="SubmitAsync" @onsubmit:preventDefault>
+        <label class="login-label" for="username">Username</label>
+        <input id="username" class="login-input" @bind="_username" @bind:event="oninput"
+               autocomplete="username" disabled="@_busy" />
+
+        <label class="login-label" for="password">Password</label>
+        <input id="password" type="password" class="login-input" @bind="_password" @bind:event="oninput"
+               @onkeydown="OnKeyDownAsync" autocomplete="current-password" disabled="@_busy" />
+
+        <button type="submit" class="login-button" disabled="@(_busy || !CanSubmit)">
+            @(_busy ? "Signing in…" : "Sign in")
+        </button>
+    </form>
+
+    @if (_error is not null)
+    {
+        <p class="login-error" role="alert">@_error</p>
+    }
+
+    <p class="login-note">
+        Accounts are created by an administrator in ADA DataManager. There is no self-registration.
+    </p>
+</div>
+
+@code {
+    private string _username = string.Empty;
+    private string _password = string.Empty;
+    private bool _busy;
+    private string? _error;
+
+    private bool CanSubmit => _username.Trim().Length > 0 && _password.Length > 0;
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await SubmitAsync();
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_busy || !CanSubmit)
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            var result = await Auth.LoginAsync(_username.Trim(), _password, CancellationToken.None);
+
+            if (result is null)
+            {
+                // Deliberately not "no such user" versus "wrong password" - the
+                // server does not distinguish them and neither should the UI.
+                _error = "Incorrect username or password.";
+                return;
+            }
+
+            _password = string.Empty;
+            Session.SignedIn(result.Account);
+            Navigation.NavigateTo("/");
+        }
+        catch (HttpRequestException)
+        {
+            _error = "Cannot reach the ADA server. Check that it is running.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

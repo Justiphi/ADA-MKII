@@ -8,13 +8,14 @@ using ADA_MKII_Core.Contracts;
 namespace ADA_MKII_Core.Client;
 
 /// <summary>Client-side <see cref="ISettingsStore"/>, mirroring SqlSettingsStore over HTTP.</summary>
-public sealed class HttpSettingsStore(HttpClient http) : ISettingsStore
+public sealed class HttpSettingsStore(HttpClient http, ISessionStore session)
+    : AuthenticatedHttpClient(http, session), ISettingsStore
 {
     public async Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
-        using var response = await http.GetAsync(ApiRoutes.Settings.ByKey(key), cancellationToken);
+        using var response = await SendAsync(HttpMethod.Get, ApiRoutes.Settings.ByKey(key), null, cancellationToken);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
@@ -31,7 +32,8 @@ public sealed class HttpSettingsStore(HttpClient http) : ISettingsStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
-        using var response = await http.PutAsJsonAsync(
+        using var response = await SendAsync(
+            HttpMethod.Put,
             ApiRoutes.Settings.ByKey(key),
             new SetSettingRequest(Serialize(value)),
             cancellationToken);
@@ -41,7 +43,7 @@ public sealed class HttpSettingsStore(HttpClient http) : ISettingsStore
 
     public async Task<IReadOnlyList<SettingDto>> ListAsync(CancellationToken cancellationToken)
     {
-        using var response = await http.GetAsync(ApiRoutes.Settings.Base, cancellationToken);
+        using var response = await SendAsync(HttpMethod.Get, ApiRoutes.Settings.Base, null, cancellationToken);
         await HttpConversationStore.EnsureSuccessAsync(response, cancellationToken);
 
         return await response.Content.ReadFromJsonAsync<List<SettingDto>>(cancellationToken) ?? [];

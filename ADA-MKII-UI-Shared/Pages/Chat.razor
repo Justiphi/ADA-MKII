@@ -6,8 +6,17 @@
 @using System.Net.Http
 @implements IAsyncDisposable
 @inject IAssistantPipeline Pipeline
+@inject IAuthClient Auth
+@inject ADA_MKII_UI_Shared.Services.SessionState Session
+@inject NavigationManager Navigation
 
 <PageTitle>ADA</PageTitle>
+
+@if (!_ready)
+{
+    <p class="chat-empty">Loading…</p>
+    return;
+}
 
 <div class="chat">
 
@@ -70,9 +79,37 @@
 
     private string _draft = string.Empty;
     private bool _busy;
+    private bool _ready;
     private string? _error;
     private Guid? _conversationId;
     private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // A stored token may still be valid from a previous run, so ask the
+        // server who we are before sending anyone to the login page.
+        if (!Session.IsSignedIn)
+        {
+            try
+            {
+                var account = await Auth.GetCurrentAsync(CancellationToken.None);
+
+                if (account is null)
+                {
+                    Navigation.NavigateTo("/login");
+                    return;
+                }
+
+                Session.SignedIn(account);
+            }
+            catch (HttpRequestException)
+            {
+                _error = "Cannot reach the ADA server. Check that it is running.";
+            }
+        }
+
+        _ready = true;
+    }
 
     private static string RoleClass(ChatRole role) => role switch
     {

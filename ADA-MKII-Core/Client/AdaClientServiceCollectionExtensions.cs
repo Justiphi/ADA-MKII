@@ -11,7 +11,10 @@ public static class AdaClientServiceCollectionExtensions
     /// <summary>
     /// Registers a typed HttpClient for ADA-MKII-Server and the HTTP-backed
     /// stores. Heads compose this instead of AddAdaData - they have no database
-    /// credential and no provider key, only a device token.
+    /// credential and no provider key, only the token they got at login.
+    ///
+    /// The head must also register an <see cref="ISessionStore"/>, since where a
+    /// token may safely be kept is a platform question.
     /// </summary>
     public static IServiceCollection AddAdaClient(
         this IServiceCollection services,
@@ -22,21 +25,23 @@ public static class AdaClientServiceCollectionExtensions
 
         services.Configure(configure);
 
-        services.AddTransient<AdaAuthHandler>();
-
+        // The bearer token is attached inside the clients (see
+        // AuthenticatedHttpClient) rather than by a DelegatingHandler, because
+        // handlers are built in the handler pool's DI scope and would resolve the
+        // wrong ISessionStore on a per-user head.
         services.AddHttpClient<IConversationStore, HttpConversationStore>(ConfigureClient)
-            .AddHttpMessageHandler<AdaAuthHandler>()
             .AddStandardResilienceHandler();
 
         services.AddHttpClient<ISettingsStore, HttpSettingsStore>(ConfigureClient)
-            .AddHttpMessageHandler<AdaAuthHandler>()
+            .AddStandardResilienceHandler();
+
+        services.AddHttpClient<IAuthClient, HttpAuthClient>(ConfigureClient)
             .AddStandardResilienceHandler();
 
         // No resilience handler on the chat client: its total-request timeout
         // would abort a long streaming turn, and retrying a partially consumed
         // stream would double-charge for tokens already paid for.
-        services.AddHttpClient<IAssistantPipeline, HttpAssistantPipeline>(ConfigureClient)
-            .AddHttpMessageHandler<AdaAuthHandler>();
+        services.AddHttpClient<IAssistantPipeline, HttpAssistantPipeline>(ConfigureClient);
 
         return services;
 
@@ -50,29 +55,3 @@ public static class AdaClientServiceCollectionExtensions
     }
 }
 
-/// <summary>
-/// Attaches the device bearer token. A delegating handler rather than a header
-/// set at construction, so the token is read per request and a rotation takes
-/// effect without rebuilding the client.
-/// </summary>
-internal sealed class AdaAuthHandler(IOptions<AdaClientOptions> options) : DelegatingHandler
-{
-    protected override async Task<HttpResponseMessage> SendAsync(
-        HttpRequestMessage request,
-        CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-
-        var provider = options.Value.TokenProvider;
-        if (provider is not null)
-        {
-            var token = await provider(cancellationToken);
-            if (!string.IsNullOrWhiteSpace(token))
-            {
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            }
-        }
-
-        return await base.SendAsync(request, cancellationToken);
-    }
-}

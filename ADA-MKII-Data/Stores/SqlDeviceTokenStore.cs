@@ -12,13 +12,17 @@ public sealed class SqlDeviceTokenStore(AdaDbContext db, TimeProvider clock) : I
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tokenHash);
 
+        // The account check is part of the lookup, not a separate step: disabling
+        // an account has to invalidate its existing tokens immediately, and a
+        // second query would be a window where it did not.
         var entity = await db.DeviceTokens
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.TokenHash == tokenHash && t.RevokedUtc == null, cancellationToken);
+            .Where(t => t.TokenHash == tokenHash
+                && t.RevokedUtc == null
+                && t.Account!.DisabledUtc == null)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        return entity is null
-            ? null
-            : new DeviceTokenDto(entity.Id, entity.Name, entity.CreatedUtc, entity.LastSeenUtc, entity.RevokedUtc);
+        return entity is null ? null : ToDto(entity);
     }
 
     public Task TouchAsync(Guid id, CancellationToken cancellationToken) =>
@@ -26,25 +30,52 @@ public sealed class SqlDeviceTokenStore(AdaDbContext db, TimeProvider clock) : I
             .Where(t => t.Id == id)
             .ExecuteUpdateAsync(s => s.SetProperty(t => t.LastSeenUtc, clock.GetUtcNow()), cancellationToken);
 
-    public async Task<bool> EnsureAsync(string name, string tokenHash, CancellationToken cancellationToken)
+    public async Task<DeviceTokenDto> CreateAsync(
+        Guid accountId,
+        string name,
+        string tokenHash,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(tokenHash);
 
-        if (await db.DeviceTokens.AnyAsync(t => t.Name == name, cancellationToken))
-        {
-            return false;
-        }
-
-        db.DeviceTokens.Add(new DeviceTokenEntity
+        var entity = new DeviceTokenEntity
         {
             Id = Guid.CreateVersion7(),
-            Name = name,
+            AccountId = accountId,
+            Name = name.Trim(),
             TokenHash = tokenHash,
             CreatedUtc = clock.GetUtcNow(),
-        });
+        };
 
+        db.DeviceTokens.Add(entity);
         await db.SaveChangesAsync(cancellationToken);
-        return true;
+
+        return ToDto(entity);
     }
+
+    public async Task<IReadOnlyList<DeviceTokenDto>> ListForAccountAsync(
+        Guid accountId,
+        CancellationToken cancellationToken)
+    {
+        var entities = await db.DeviceTokens
+            .AsNoTracking()
+            .Where(t => t.AccountId == accountId)
+            .OrderByDescending(t => t.CreatedUtc)
+            .ToListAsync(cancellationToken);
+
+        return [.. entities.Select(ToDto)];
+    }
+
+    public async Task<bool> RevokeAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var updated = await db.DeviceTokens
+            .Where(t => t.Id == id && t.RevokedUtc == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedUtc, clock.GetUtcNow()), cancellationToken);
+
+        return updated > 0;
+    }
+
+    private static DeviceTokenDto ToDto(DeviceTokenEntity e) =>
+        new(e.Id, e.AccountId, e.Name, e.CreatedUtc, e.LastSeenUtc, e.RevokedUtc);
 }

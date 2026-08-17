@@ -86,6 +86,103 @@ body {
     color: var(--ada-accent);
 }
 
+.ada-account {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.ada-account-name {
+    color: var(--ada-muted);
+    font-size: 0.9rem;
+}
+
+.ada-signout {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+    color: var(--ada-muted);
+    padding: 0.3rem 0.8rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.ada-signout:hover {
+    color: var(--ada-text);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ---- Login ---- */
+
+.login {
+    max-width: 22rem;
+    margin: 3rem auto;
+}
+
+.login h1 {
+    font-size: 1.4rem;
+    margin-bottom: 1.25rem;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+}
+
+.login-label {
+    font-size: 0.85rem;
+    color: var(--ada-muted);
+    margin-bottom: 0.3rem;
+}
+
+.login-input {
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 1rem;
+    border-radius: 0.6rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background-color: var(--ada-surface);
+    color: var(--ada-text);
+    font: inherit;
+}
+
+.login-input:focus {
+    outline: 2px solid var(--ada-accent);
+    outline-offset: -1px;
+}
+
+.login-button {
+    padding: 0.65rem 1rem;
+    border: none;
+    border-radius: 0.6rem;
+    background-color: var(--ada-accent);
+    color: #0b1220;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.login-button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.login-error {
+    margin-top: 1rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 0.5rem;
+    background-color: rgba(255, 96, 96, 0.12);
+    border: 1px solid rgba(255, 96, 96, 0.35);
+    color: #ffb4b4;
+}
+
+.login-note {
+    margin-top: 1.5rem;
+    font-size: 0.82rem;
+    color: var(--ada-muted);
+    line-height: 1.5;
+}
+
 .ada-main {
     flex: 1;
     padding: 1.5rem 1rem;
