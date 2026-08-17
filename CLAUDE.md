@@ -156,6 +156,18 @@ Bind config with the options pattern and `.ValidateDataAnnotations().ValidateOnS
 
 **Client token storage:** MAUI → `SecureStorage`; Web head → server-side config, never sent to the browser; Discord → environment variable.
 
+### Getting the first token
+
+Device tokens live hashed in the `DeviceTokens` table, so there is a chicken-and-egg problem on a fresh database. `Ada:Auth:BootstrapToken` solves it: when set, the server registers that token under `Ada:Auth:BootstrapTokenName` at startup if the name is not already taken.
+
+```bash
+dotnet user-secrets set "Ada:Auth:BootstrapToken" "<a long random string>" --project ADA-MKII-Server
+```
+
+In production supply it as `Ada__Auth__BootstrapToken` from the systemd `EnvironmentFile`. Use `DeviceTokens.Generate()` in `ADA-MKII-Core` to mint one. **Migrations must be applied before first run** — the seeding step writes to the database and will fail fast if the schema is absent.
+
+Local development connects to `(localdb)\MSSQLLocalDB`, configured in `appsettings.Development.json`. That connection string uses trusted auth and contains no secret, which is why it is safe to commit; the production one never is.
+
 ## DI composition roots
 
 One `AddAda*` extension per project:
@@ -177,7 +189,9 @@ Each head composes exactly:
 
 ## Cross-cutting conventions
 
-**Logging.** `Microsoft.Extensions.Logging` abstractions everywhere; inject `ILogger<T>`, never use a static logger. Server adds Serilog → console (journald) + rolling file, with `ConversationId` in a log scope per turn. **Never log message bodies at Information level. Never log keys or tokens** — add a redaction rule.
+**Logging.** `Microsoft.Extensions.Logging` abstractions everywhere; inject `ILogger<T>`, never use a static logger. Server adds Serilog → console (journald) + rolling file, with `ConversationId` in a log scope per turn. **Never log message bodies at Information level. Never log keys or tokens.**
+
+Use **source-generated `[LoggerMessage]` methods**, not `logger.LogInformation(...)` — CA1848 enforces this at build time, and it keeps every message template in one auditable place. See `ADA-MKII-Server/Logging/ServerLog.cs` for the pattern.
 
 **Cancellation.** Sources per head: `HttpContext.RequestAborted` (Server), component disposal (Blazor), page lifecycle plus an explicit stop button (MAUI voice). Streaming endpoints must honour client disconnect so a cancelled chat stops burning tokens.
 
@@ -247,7 +261,7 @@ Critical path is **0 → 1 → 2 → 3 → 4**. Voice, Android and Discord are l
 
 0. **Repo hygiene — COMPLETE.** This file plus `Directory.Build.props`, `Directory.Packages.props`, `global.json`, `.editorconfig`, `nuget.config`; hoisted properties and package versions out of all five csprojs. The four non-MAUI projects build clean with zero warnings under warnings-as-errors. *Set the compiler policy all later code is written under.*
 1. **Skeleton — COMPLETE.** Created `Server`, `Web`, `UI-Shared`; wired all eight `ProjectReference` edges; stripped the MAUI sample (78 files down to 20); retargeted TFMs; dropped Syncfusion, both SQLite packages and `CommunityToolkit.Mvvm`; converted the MAUI head to Blazor Hybrid. All eight projects build clean with **zero warnings**, and the MAUI `TreatWarningsAsErrors` opt-out has been removed. The `NU1903` advisory is gone with `SQLitePCLRaw`.
-2. **Data + Server foundation.** Replace `Model.cs` with a top-level `AdaDbContext` (`Conversation`, `Message`, `Setting`); drop `APIKey`; swap EF Sqlite → SqlServer; connection string from config; first migration. Server gets `/health`, bearer auth, ProblemDetails, Serilog. *Blocks every head.*
+2. **Data + Server foundation — COMPLETE.** `AdaDbContext` with `Conversation`, `Message`, `Setting` and `DeviceToken`; `APIKey` dropped; EF SQLite → SqlServer; `InitialCreate` migration applied. Server has `/health` (anonymous), device-token bearer auth, ProblemDetails, Serilog, rate limiting, and `/api/conversations` + `/api/settings`. Verified end to end against SQL Server.
 3. **LLM end-to-end.** Core pipeline, `OpenAiLlmProvider` with streaming, `POST /api/chat` as SSE, the HTTP client. **ADA first works here, with no UI at all** — prove it with `curl`.
 4. **Blazor UI.** Build the chat UI in `UI-Shared`. Bring it up on the **Web head first** (fast inner loop, hot reload, no device deploy), then host the identical RCL in `BlazorWebView` on Windows.
 5. **Voice.** MAUI STT/TTS + Windows mic permission + the partial-result workaround; then Web Speech interop; then optional server-side ElevenLabs.
@@ -259,7 +273,7 @@ Critical path is **0 → 1 → 2 → 3 → 4**. Voice, Android and Discord are l
 
 - **Auth.** Per-device long random bearer token, stored **hashed** with a friendly name for revocation, TLS only, plus `AddRateLimiter` and fail2ban. Full OAuth/Identity is weeks of work for a user count of one; the upgrade path is documented, not built.
 - **Public exposure.** The API is internet-facing by choice. Bind SQL Server to localhost only, keep the reverse proxy as the sole ingress, patch aggressively.
-- **EF migrations.** Migrations live in `Data` with `--startup-project ADA-MKII-Server`. **Never `EnsureCreated()`. Never auto-migrate on startup in production** — generate a migrations bundle and run it as a deliberate deploy step. `Microsoft.EntityFrameworkCore.Design` must be `PrivateAssets="all"`.
+- **EF migrations.** Migrations live in `Data` with `--startup-project ADA-MKII-Server`. **Never `EnsureCreated()`. Never auto-migrate on startup in production** — generate a migrations bundle and run it as a deliberate deploy step. `Microsoft.EntityFrameworkCore.Design` is referenced with `PrivateAssets="all"` in **both** `Data` and `Server`: the tooling looks for it in the startup project, and `PrivateAssets` stops it flowing from `Data`. Generated migration files are marked `generated_code = true` in `.editorconfig`, because they trip CA1825/CA1861 and are rewritten on every `migrations add`.
 - **Cost control — build this in from day one, not later.** Max-tokens cap per turn, conversation trimming/summarisation above N messages, persisted `TokensIn`/`TokensOut` per message row, a monthly spend guard read from `Setting`, ElevenLabs off by default. A runaway streaming loop with retries is the realistic way to get a surprise bill.
 - **Privacy.** The VPS will hold a verbatim transcript of everything ever said to ADA. Encrypt the volume, restrict SQL to localhost, and test restores.
 - **Web Speech reality.** Effectively Chrome/Edge only, and Chrome on Linux ships audio to Google's servers. The server-side fallback is not optional — it is the default for Firefox users. Browser mic access also requires a **secure context**, so HTTPS is mandatory even in testing.

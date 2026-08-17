@@ -10,12 +10,23 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>ADA_MKII_Server</RootNamespace>
+    <UserSecretsId>ada-mkii-server</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ADA-MKII-Core\ADA-MKII-Core.csproj" />
     <ProjectReference Include="..\ADA-MKII-API\ADA-MKII-API.csproj" />
     <ProjectReference Include="..\ADA-MKII-Data\ADA-MKII-Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" />
+    <!--
+      Required here as well as in ADA-MKII-Data: `dotnet ef` looks for the design
+      package in the STARTUP project, and Data marks it PrivateAssets="all" so it
+      does not flow. PrivateAssets="all" again here keeps it out of any output.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
   </ItemGroup>
 
 </Project>

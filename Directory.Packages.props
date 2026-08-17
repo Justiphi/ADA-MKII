@@ -26,10 +26,16 @@
     <PackageVersion Include="OpenAI" Version="2.13.0" />
   </ItemGroup>
 
-  <!-- Data access (ADA-MKII-Data). Swaps to .SqlServer in phase 2. -->
+  <!-- Data access (ADA-MKII-Data) -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11" />
+  </ItemGroup>
+
+  <!-- Server (ADA-MKII-Server) -->
+  <ItemGroup>
+    <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
   </ItemGroup>
 
   <!-- Discord bot (ADA-MKII-Discord) -->
