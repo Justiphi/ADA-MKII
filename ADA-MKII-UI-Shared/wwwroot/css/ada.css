@@ -13,14 +13,53 @@
     --ada-header-height: 3.5rem;
 }
 
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
 html,
 body {
     margin: 0;
     padding: 0;
     height: 100%;
+    /* The shell is exactly one viewport tall and scrolls internally, so a
+       document-level scrollbar would only ever be a layout bug. */
+    overflow: hidden;
     background-color: var(--ada-bg);
     color: var(--ada-text);
     font-family: "OpenSans-Regular", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/*
+   Host chrome from the BlazorWebView page. The MAUI head links this stylesheet
+   and nothing else, so without these rules the error banner renders as a
+   permanently visible block and pushes the page taller than the window. The web
+   head never showed it because its own app.css already hid it.
+*/
+.status-bar-safe-area {
+    display: none;
+}
+
+#blazor-error-ui {
+    /* Blazor overrides this with an inline display:block when a circuit or
+       WebView error actually occurs. */
+    display: none;
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 1000;
+    padding: 0.7rem 1.25rem;
+    background-color: #ffd9a0;
+    color: #3a2a00;
+    box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.4);
+}
+
+#blazor-error-ui .dismiss {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.9rem;
+    cursor: pointer;
 }
 
 /* A fixed height, not min-height: the chat log scrolls inside the shell, and a

@@ -195,6 +195,27 @@ thread and stalls on an open-but-idle stream, which is exactly what an SSE
 connection is. Loop on the read instead:
 `while (await reader.ReadLineAsync(ct) is { } line)`.
 
+## Inspecting the MAUI window
+
+The MAUI head is a desktop app, so browser tooling cannot see it. Build and run
+it, then capture the window with `PrintWindow` and the `PW_RENDERFULLCONTENT`
+flag (`2`) — plain `CopyFromScreen` grabs whatever is on top of the desktop, and
+stealing focus is rude if something else is running fullscreen:
+
+```
+dotnet build ADA-MKII-UI/ADA-MKII-UI.csproj -f net10.0-windows10.0.19041.0
+```
+
+The executable lands in `ADA-MKII-UI/bin/Debug/net10.0-windows10.0.19041.0/win-x64/`.
+A useful sanity check on a capture: count distinct pixel colours. A blank or
+failed capture has one or two; a real render has dozens.
+
+**Test both heads after any change to shared CSS.** The two link different
+stylesheets — the web head also loads its own `wwwroot/app.css`, the MAUI head
+loads only the shared `ada.css`. A rule present in one and missing from the other
+produces a bug visible on exactly one head, which is how the always-visible
+`#blazor-error-ui` banner slipped through.
+
 ## Testing the chat stream
 
 `POST /api/chat` returns server-sent events, so a buffering client makes a
