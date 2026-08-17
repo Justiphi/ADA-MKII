@@ -26,6 +26,9 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<AccountRow> _accounts = [];
     private readonly ObservableCollection<ConversationSummary> _conversations = [];
 
+    /// <summary>Guards against overlapping operations - see <see cref="RunAsync"/>.</summary>
+    private bool _busy;
+
     public MainWindow(AdminService admin)
     {
         _admin = admin;
@@ -298,14 +301,25 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Runs an operation with the cursor busied and any failure surfaced. Every
-    /// action here touches a remote database, so "it silently did nothing" is the
-    /// outcome to design against.
+    /// Runs an operation with the busy cursor shown and any failure surfaced.
+    /// Every action here touches a remote database, so "it silently did nothing"
+    /// is the outcome to design against.
+    ///
+    /// Re-entrancy is rejected rather than queued. Rebuilding the accounts grid
+    /// raises SelectionChanged, which would otherwise start a second operation
+    /// while the first is mid-flight and let the two fight over the busy state.
     /// </summary>
     private async Task RunAsync(Func<CancellationToken, Task> operation)
     {
-        IsEnabled = false;
+        if (_busy)
+        {
+            return;
+        }
+
+        _busy = true;
         System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+
+        string? failure = null;
 
         try
         {
@@ -315,13 +329,21 @@ public partial class MainWindow : Window
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            SetStatus("Failed: " + ex.Message);
-            MessageBox.Show(ex.Message, "ADA DataManager", MessageBoxButton.OK, MessageBoxImage.Error);
+            failure = ex.Message;
+            SetStatus("Failed: " + failure);
         }
         finally
         {
             System.Windows.Input.Mouse.OverrideCursor = null;
-            IsEnabled = true;
+            _busy = false;
+        }
+
+        // Shown only after the busy state is cleared. A modal dialog raised while
+        // its owner is busy or disabled is the classic way a WPF app appears to
+        // hang: input is blocked and the dialog can sit behind the main window.
+        if (failure is not null)
+        {
+            ShowDialog(failure, MessageBoxImage.Error);
         }
     }
 
@@ -330,14 +352,29 @@ public partial class MainWindow : Window
     private void Warn(string message)
     {
         SetStatus(message);
-        MessageBox.Show(message, "ADA DataManager", MessageBoxButton.OK, MessageBoxImage.Warning);
+        ShowDialog(message, MessageBoxImage.Warning);
     }
 
-    private static bool Confirm(string message, bool danger = false) =>
-        MessageBox.Show(
+    /// <summary>
+    /// Always passes an owner. Without one, WPF picks the active window - and if
+    /// that is not this one, the dialog opens behind it and the app looks frozen.
+    /// </summary>
+    private void ShowDialog(string message, MessageBoxImage icon)
+    {
+        Activate();
+        MessageBox.Show(this, message, "ADA DataManager", MessageBoxButton.OK, icon);
+    }
+
+    private bool Confirm(string message, bool danger = false)
+    {
+        Activate();
+
+        return MessageBox.Show(
+            this,
             message,
             "ADA DataManager",
             MessageBoxButton.YesNo,
             danger ? MessageBoxImage.Warning : MessageBoxImage.Question,
             MessageBoxResult.No) == MessageBoxResult.Yes;
+    }
 }

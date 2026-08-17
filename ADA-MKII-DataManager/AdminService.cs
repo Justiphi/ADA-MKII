@@ -153,22 +153,47 @@ public sealed class AdminService(IServiceProvider services)
             .ExecuteDeleteAsync(cancellationToken);
     }
 
-    /// <summary>Verifies the database is reachable and migrated, so failures surface at startup.</summary>
+    /// <summary>
+    /// Verifies the database is reachable and migrated, so failures surface at
+    /// startup rather than on the operator's first click. Names the server and
+    /// database it tried, because "cannot connect" without those is unactionable.
+    /// </summary>
     public async Task<string> CheckConnectionAsync(CancellationToken cancellationToken)
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AdaDbContext>();
 
+        var target = Describe(db.Database.GetConnectionString());
+
         if (!await db.Database.CanConnectAsync(cancellationToken))
         {
-            return "Cannot connect to the database.";
+            return $"Cannot reach {target}. Check the server is running and the connection string is right.";
         }
 
         var pending = await db.Database.GetPendingMigrationsAsync(cancellationToken);
         var pendingCount = pending.Count();
 
         return pendingCount > 0
-            ? $"Connected, but {pendingCount} migration(s) are pending. Run 'dotnet ef database update'."
-            : "Connected.";
+            ? $"Connected to {target}, but {pendingCount} migration(s) are pending. Run 'dotnet ef database update'."
+            : $"Connected to {target}.";
+    }
+
+    /// <summary>Server and database only - never the whole string, which may carry a password.</summary>
+    private static string Describe(string? connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return "the database";
+        }
+
+        try
+        {
+            var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
+            return $"{builder.DataSource}/{builder.InitialCatalog}";
+        }
+        catch (ArgumentException)
+        {
+            return "the database";
+        }
     }
 }

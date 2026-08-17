@@ -221,7 +221,15 @@ dotnet user-secrets set "ConnectionStrings:Ada" "<connection string>" --project 
 ```
 
 It reports connection state and pending migrations in its status bar at startup,
-so a schema mismatch is visible before you touch anything.
+naming the server and database, so a wrong connection string or a schema
+mismatch is visible before you touch anything.
+
+**If it appears to hang, suspect the database first.** `AddAdaDataAdmin`
+deliberately omits `EnableRetryOnFailure` and shortens the connect timeout,
+because the server's retry defaults - 6 attempts at a 15-second timeout - turn an
+unreachable database into more than a minute of motionless window. An
+unreachable host should now be reported in a few seconds. If a future change
+reintroduces retries here, that symptom comes straight back.
 
 To check a login end to end afterwards:
 
