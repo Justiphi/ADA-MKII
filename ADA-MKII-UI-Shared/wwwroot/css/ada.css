@@ -113,6 +113,116 @@ body {
     border-color: rgba(255, 255, 255, 0.3);
 }
 
+/* ---- Settings ---- */
+
+.settings {
+    max-width: 40rem;
+    overflow-y: auto;
+}
+
+.settings h1 {
+    font-size: 1.4rem;
+    margin-bottom: 1.25rem;
+}
+
+.settings h2 {
+    font-size: 1rem;
+    margin: 0 0 0.75rem;
+    color: var(--ada-muted);
+    font-weight: 600;
+}
+
+.settings-group {
+    background-color: var(--ada-surface);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.8rem;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1.25rem;
+}
+
+.settings-row {
+    display: flex;
+    gap: 0.7rem;
+    align-items: flex-start;
+    padding: 0.55rem 0;
+    cursor: pointer;
+}
+
+.settings-row input {
+    margin-top: 0.25rem;
+    flex-shrink: 0;
+}
+
+.settings-row > span {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.settings-label {
+    font-weight: 600;
+}
+
+.settings-hint {
+    color: var(--ada-muted);
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
+.settings-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ada-accent);
+    border: 1px solid var(--ada-accent);
+    border-radius: 999px;
+    padding: 0.05rem 0.4rem;
+    margin-left: 0.4rem;
+}
+
+.settings-fieldset {
+    border: none;
+    padding: 0.5rem 0 0;
+    margin: 0.5rem 0 0;
+}
+
+/* A disabled fieldset should read as unavailable, not merely inert. */
+.settings-fieldset:disabled {
+    opacity: 0.45;
+}
+
+.settings-fieldset legend {
+    padding: 0;
+    margin-bottom: 0.25rem;
+}
+
+.settings-status {
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.85rem;
+    color: var(--ada-muted);
+}
+
+.settings-status p {
+    margin: 0.25rem 0;
+}
+
+.settings-warning {
+    color: #ffcf8b;
+}
+
+.settings-back {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 0.6rem;
+    color: var(--ada-text);
+    padding: 0.5rem 1rem;
+    font: inherit;
+    cursor: pointer;
+}
+
 /* ---- Login ---- */
 
 .login {

@@ -9,6 +9,7 @@
 @inject IAssistantPipeline Pipeline
 @inject ISpeechToTextService Stt
 @inject ITextToSpeechService Tts
+@inject ADA_MKII_UI_Shared.Services.VoicePreferences VoicePrefs
 @inject IAuthClient Auth
 @inject ADA_MKII_UI_Shared.Services.SessionState Session
 @inject NavigationManager Navigation
@@ -54,7 +55,9 @@
 
     <form class="composer" @onsubmit="SendAsync" @onsubmit:preventDefault>
 
-        @if (Stt.IsSupported)
+        @* Hidden unless the platform can listen AND the user wants voice - an
+           enabled setting cannot conjure an engine that is not there. *@
+        @if (Stt.IsSupported && VoicePrefs.Enabled)
         {
             <button type="button"
                     class="composer-mic @(_voice == VoiceSessionState.Listening ? "listening" : string.Empty)"
@@ -124,7 +127,20 @@
             catch (HttpRequestException)
             {
                 _error = "Cannot reach the ADA server. Check that it is running.";
+                _ready = true;
+                return;
             }
+        }
+
+        // Voice preferences decide whether the microphone appears at all, so they
+        // must be loaded before the first render of the composer.
+        try
+        {
+            await VoicePrefs.LoadAsync(CancellationToken.None);
+        }
+        catch (HttpRequestException)
+        {
+            // Defaults stand; voice is not important enough to block the chat.
         }
 
         _ready = true;
@@ -227,7 +243,7 @@
 
         // Speak the finished reply, not the deltas - synthesising fragments as
         // they stream produces stuttering nonsense.
-        if (Tts.IsSupported && _error is null && reply.Content.Length > 0)
+        if (Tts.IsSupported && VoicePrefs.Enabled && _error is null && reply.Content.Length > 0)
         {
             _voice = VoiceSessionState.Speaking;
             StateHasChanged();

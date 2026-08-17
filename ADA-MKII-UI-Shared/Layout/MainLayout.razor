@@ -14,6 +14,7 @@
         {
             <div class="ada-account">
                 <span class="ada-account-name">@Session.Account!.DisplayName</span>
+                <NavLink class="ada-signout" href="settings">Settings</NavLink>
                 <button type="button" class="ada-signout" @onclick="SignOutAsync">Sign out</button>
             </div>
         }

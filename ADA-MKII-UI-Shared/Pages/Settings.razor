@@ -1,0 +1,143 @@
+@page "/settings"
+@using ADA_MKII_Core.Abstractions
+@using ADA_MKII_Core.Client
+@using ADA_MKII_Core.Contracts
+@using ADA_MKII_UI_Shared.Services
+@using System.Net.Http
+@inject VoicePreferences Voice
+@inject ISpeechToTextService Stt
+@inject ITextToSpeechService Tts
+@inject NavigationManager Navigation
+
+<PageTitle>Settings — ADA</PageTitle>
+
+<div class="settings">
+
+    <h1>Settings</h1>
+
+    @if (!_ready)
+    {
+        <p class="chat-empty">Loading…</p>
+    }
+    else
+    {
+        <section class="settings-group">
+            <h2>Voice</h2>
+
+            <label class="settings-row">
+                <input type="checkbox" checked="@Voice.Enabled" @onchange="OnEnabledChangedAsync" disabled="@_saving" />
+                <span>
+                    <span class="settings-label">Enable voice</span>
+                    <span class="settings-hint">Show the microphone, and speak replies aloud.</span>
+                </span>
+            </label>
+
+            <fieldset class="settings-fieldset" disabled="@(!Voice.Enabled || _saving)">
+                <legend class="settings-label">Speech engine</legend>
+
+                <label class="settings-row">
+                    <input type="radio" name="provider" checked="@Voice.UseNativeSpeech"
+                           @onchange="@(() => SetProviderAsync(SpeechProviders.Native))" />
+                    <span>
+                        <span class="settings-label">This device <span class="settings-badge">default</span></span>
+                        <span class="settings-hint">
+                            Uses the platform's own speech. Free, lower latency, and audio never leaves the device.
+                        </span>
+                    </span>
+                </label>
+
+                <label class="settings-row">
+                    <input type="radio" name="provider" checked="@(!Voice.UseNativeSpeech)"
+                           @onchange="@(() => SetProviderAsync(SpeechProviders.Server))" />
+                    <span>
+                        <span class="settings-label">ADA server</span>
+                        <span class="settings-hint">
+                            Sends audio to your server for transcription. Use where a platform has no usable speech
+                            engine. Costs money per minute and means your voice leaves the device.
+                        </span>
+                    </span>
+                </label>
+            </fieldset>
+
+            <div class="settings-status">
+                <p>Recognition on this device: <strong>@(Stt.IsSupported ? "available" : "not available")</strong></p>
+                <p>Spoken replies on this device: <strong>@(Tts.IsSupported ? "available" : "not available")</strong></p>
+
+                @if (!Stt.IsSupported)
+                {
+                    <p class="settings-warning">
+                        This head has no speech recognition, so the microphone is hidden regardless of the setting above.
+                        Spoken replies are unaffected.
+                    </p>
+                }
+            </div>
+        </section>
+
+        @if (_error is not null)
+        {
+            <p class="chat-error" role="alert">@_error</p>
+        }
+
+        <button type="button" class="settings-back" @onclick="@(() => Navigation.NavigateTo("/"))">Back to chat</button>
+    }
+</div>
+
+@code {
+    private bool _ready;
+    private bool _saving;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await Voice.LoadAsync(CancellationToken.None);
+        }
+        catch (HttpRequestException)
+        {
+            _error = "Cannot reach the ADA server, so settings could not be loaded.";
+        }
+        catch (AdaApiException ex)
+        {
+            _error = ex.IsAuthFailure
+                ? "This session is no longer authorised. Sign in again."
+                : "Settings could not be loaded.";
+        }
+
+        _ready = true;
+    }
+
+    private async Task OnEnabledChangedAsync(ChangeEventArgs args) =>
+        await SaveAsync(() => Voice.SetEnabledAsync(args.Value is true, CancellationToken.None));
+
+    private async Task SetProviderAsync(string provider) =>
+        await SaveAsync(() => Voice.SetProviderAsync(provider, CancellationToken.None));
+
+    /// <summary>
+    /// Saves immediately rather than behind a Save button. There are few settings
+    /// and each is one value; an explicit save step would only create a state
+    /// where the UI and the server disagree.
+    /// </summary>
+    private async Task SaveAsync(Func<Task> save)
+    {
+        _saving = true;
+        _error = null;
+
+        try
+        {
+            await save();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "Cannot reach the ADA server. The change was not saved.";
+        }
+        catch (AdaApiException)
+        {
+            _error = "The server rejected the change. It was not saved.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

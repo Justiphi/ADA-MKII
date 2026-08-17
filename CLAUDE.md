@@ -231,16 +231,34 @@ Push-to-talk only. **No wake word** in phase 1 — the battery and false-trigger
 | Discord | `NullSpeechToTextService` | `NullTextToSpeechService` |
 
 > **MAUI speech-to-text is blocked.** This document originally specified
-> `CommunityToolkit.Maui.Media.SpeechToText`. That API **no longer exists**:
-> the toolkit removed it before its .NET 10 line, and it is absent from 13.0.0,
-> 14.2.2 and 15.0.0 alike, with no separate replacement package. Downgrading is
-> not an option, since versions that had it target net9 only.
+> `CommunityToolkit.Maui.Media.SpeechToText`. That API **no longer exists**: the
+> toolkit removed it before its .NET 10 line, and it is absent from 13.0.0,
+> 14.2.2 and 15.0.0 alike. Downgrading is not an option — versions that had it
+> target net9 only.
 >
-> The MAUI head therefore registers `NullSpeechToTextService`, which reports
-> `IsSupported = false` so the UI hides the microphone rather than offering a
-> button that cannot work. Choosing a replacement — platform `SpeechRecognizer`
-> APIs, or server-side transcription reusing the `/api/speech/stt` path already
-> planned for Firefox — is an open decision.
+> A survey of the alternatives found **no drop-in replacement package**. The only
+> MAUI-branded STT plugin (`Chant.SpeechKit.Maui`) tops out at net9 and is paid
+> commercial software; every Xamarin-era plugin targets `MonoAndroid`/`UAP`;
+> `Vosk` ships no Android binaries and is unmaintained since 2022.
+>
+> The realistic routes are:
+> - **Platform APIs.** Android is easy — `Android.Speech.SpeechRecognizer` is in
+>   the SDK bindings already, with `OnPartialResults` mapping cleanly onto
+>   `IAsyncEnumerable<SpeechPartial>`. **Windows is the problem:**
+>   `Windows.Media.SpeechRecognition` requires MSIX package identity and is
+>   documented as unavailable to unpackaged apps, which this head is by design
+>   (`WindowsPackageType=None`). The fallback, `System.Speech.Recognition`, works
+>   unpackaged but is the legacy SAPI engine with noticeably worse accuracy.
+> - **Azure Speech SDK** (`Microsoft.CognitiveServices.Speech`) — the only
+>   candidate with real Android binaries *and* true streaming partials, but it
+>   needs a key on the device unless proxied through a short-lived token endpoint.
+> - **Server-side transcription** through `/api/speech/stt`, reusing the path
+>   already planned for Firefox. One implementation serves every head, at the cost
+>   of sending audio off-device and paying per minute.
+>
+> Until one is chosen the MAUI head registers `NullSpeechToTextService`, which
+> reports `IsSupported = false` so the UI hides the microphone rather than
+> offering a button that cannot work.
 
 **ElevenLabs is opt-in, not default** — gated on the `Voice:UseElevenLabs` setting. On-device TTS is free and lower-latency; this is a direct cost control.
 

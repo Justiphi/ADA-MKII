@@ -17,6 +17,7 @@ public static class AdaSharedUiServiceCollectionExtensions
         // Scoped, not singleton: on the web head one Blazor circuit is one user,
         // and a singleton would leak an account across browser sessions.
         services.AddScoped<SessionState>();
+        services.AddScoped<VoicePreferences>();
 
         // Phase 5 registers voice session state here. Speech implementations
         // themselves are supplied by each head, never by this project.
