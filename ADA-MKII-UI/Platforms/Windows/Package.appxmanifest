@@ -41,6 +41,13 @@
 
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
+    <!--
+      Declared for a future packaged build. It is NOT what gates the microphone
+      today: the project sets WindowsPackageType=None, so this manifest is not
+      enforced and access is controlled by Windows Settings > Privacy >
+      Microphone > "Let desktop apps access your microphone".
+    -->
+    <DeviceCapability Name="microphone" />
   </Capabilities>
 
 </Package>

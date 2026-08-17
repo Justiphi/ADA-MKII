@@ -1,6 +1,8 @@
 using ADA_MKII_Core.Abstractions;
 using ADA_MKII_Core.Client;
+using ADA_MKII_Core.Speech;
 using ADA_MKII_UI.Auth;
+using ADA_MKII_UI.Speech;
 using ADA_MKII_UI_Shared;
 using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
@@ -44,9 +46,15 @@ public static class MauiProgram
         builder.Services.AddSingleton<ISessionStore, SecureStorageSessionStore>();
         builder.Services.AddAdaSharedUi();
 
-        // Phase 5 adds MauiSpeechToTextService and MauiTextToSpeechService - the
-        // device implementations of Core's abstractions. Nothing platform-specific
-        // may leak into UI-Shared.
+        // Voice. Synthesis uses MAUI Essentials and works today.
+        builder.Services.AddSingleton<ITextToSpeechService, MauiTextToSpeechService>();
+
+        // Recognition is NOT yet implemented on this head. CommunityToolkit.Maui
+        // removed its SpeechToText API before the .NET 10 line, so the approach
+        // CLAUDE.md assumed is no longer available and a replacement has to be
+        // chosen. Registering the null service keeps the UI honest: it hides the
+        // microphone rather than offering a button that cannot work.
+        builder.Services.AddSingleton<ISpeechToTextService, NullSpeechToTextService>();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

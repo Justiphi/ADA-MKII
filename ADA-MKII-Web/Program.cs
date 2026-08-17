@@ -3,6 +3,7 @@ using ADA_MKII_Core.Client;
 using ADA_MKII_UI_Shared;
 using ADA_MKII_Web.Auth;
 using ADA_MKII_Web.Components;
+using ADA_MKII_Web.Speech;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,12 @@ var baseAddress = builder.Configuration[$"{AdaClientOptions.SectionName}:BaseAdd
 builder.Services.AddAdaClient(options => options.BaseAddress = new Uri(baseAddress));
 builder.Services.AddScoped<ISessionStore, ScopedSessionStore>();
 builder.Services.AddAdaSharedUi();
+
+// Voice, supplied by this head. Scoped because the JS module reference and the
+// active recogniser belong to one circuit.
+builder.Services.AddScoped<WebSpeechModule>();
+builder.Services.AddScoped<ISpeechToTextService, WebSpeechToTextService>();
+builder.Services.AddScoped<ITextToSpeechService, WebSpeechSynthesisService>();
 
 var app = builder.Build();
 

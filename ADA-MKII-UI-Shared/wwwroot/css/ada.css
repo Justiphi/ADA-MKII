@@ -337,6 +337,42 @@ body {
     cursor: default;
 }
 
+.composer-mic {
+    width: 2.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 0.7rem;
+    background-color: var(--ada-surface);
+    color: var(--ada-text);
+    font-size: 1.05rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.composer-mic:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+/* Listening has to be unmistakable - a live microphone the user has forgotten
+   about is a privacy problem, not just a UI wart. */
+.composer-mic.listening {
+    background-color: #b3261e;
+    border-color: #b3261e;
+    color: #fff;
+    animation: ada-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ada-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .composer-mic.listening {
+        animation: none;
+    }
+}
+
 .composer-button.stop {
     background-color: var(--ada-surface);
     color: var(--ada-text);

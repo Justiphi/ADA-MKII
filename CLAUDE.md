@@ -225,10 +225,22 @@ Push-to-talk only. **No wake word** in phase 1 — the battery and false-trigger
 
 | Head | STT | TTS |
 |---|---|---|
-| MAUI (Win/Android) | `CommunityToolkit.Maui.Media.SpeechToText.Default` — requires `.UseMauiCommunityToolkit()` | `Microsoft.Maui.Media.TextToSpeech.Default` |
-| Web / Linux | JS interop module wrapping `webkitSpeechRecognition`, partials returned via `DotNetObjectReference` | `window.speechSynthesis` |
+| MAUI (Win/Android) | **Not yet available — see below** | `Microsoft.Maui.Media.TextToSpeech.Default` ✅ |
+| Web / Linux | JS module wrapping `webkitSpeechRecognition`, partials returned via `DotNetObjectReference` ✅ | `window.speechSynthesis` ✅ |
 | Web fallback (Firefox) | `MediaRecorder` → `POST /api/speech/stt` | `/api/speech/tts` → `audio/mpeg` in an `<audio>` element |
 | Discord | `NullSpeechToTextService` | `NullTextToSpeechService` |
+
+> **MAUI speech-to-text is blocked.** This document originally specified
+> `CommunityToolkit.Maui.Media.SpeechToText`. That API **no longer exists**:
+> the toolkit removed it before its .NET 10 line, and it is absent from 13.0.0,
+> 14.2.2 and 15.0.0 alike, with no separate replacement package. Downgrading is
+> not an option, since versions that had it target net9 only.
+>
+> The MAUI head therefore registers `NullSpeechToTextService`, which reports
+> `IsSupported = false` so the UI hides the microphone rather than offering a
+> button that cannot work. Choosing a replacement — platform `SpeechRecognizer`
+> APIs, or server-side transcription reusing the `/api/speech/stt` path already
+> planned for Firefox — is an open decision.
 
 **ElevenLabs is opt-in, not default** — gated on the `Voice:UseElevenLabs` setting. On-device TTS is free and lower-latency; this is a direct cost control.
 
@@ -277,7 +289,7 @@ Critical path is **0 → 1 → 2 → 3 → 4**. Voice, Android and Discord are l
 3. **LLM end-to-end — COMPLETE.** `AssistantPipeline` in Core, `OpenAiLlmProvider` in API, `POST /api/chat` as SSE, and the HTTP client (`HttpConversationStore`, `HttpSettingsStore`, `HttpAssistantPipeline`). Cost controls are in from the start: max output tokens, history trimming, per-message token persistence and a monthly token budget. **ADA works here with no UI at all.** When no provider key is configured the server falls back to `EchoLlmProvider`, so the pipeline is runnable and testable without a credential.
 4. **Blazor UI — COMPLETE.** `Chat.razor` in `UI-Shared`: streaming reply, Stop, New chat, per-turn token display, and typed error handling for auth failure and an unreachable server. Both heads compose `AddAdaClient()` + `AddAdaSharedUi()`. Verified end to end in the browser, and the MAUI Windows app was launched and confirmed to render the identical shared UI.
    **Open gap:** the MAUI app has no way to enter a device token, so it cannot yet authenticate. A settings screen writing to `SecureStorage` under `MauiProgram.DeviceTokenKey` is the missing piece — do this before phase 6.
-5. **Voice.** MAUI STT/TTS + Windows mic permission + the partial-result workaround; then Web Speech interop; then optional server-side ElevenLabs.
+5. **Voice — PARTLY COMPLETE.** `ISpeechToTextService`/`ITextToSpeechService` and `VoiceSessionState` in Core; Web Speech recognition and synthesis in the Web head; MAUI synthesis via Essentials; push-to-talk mic button with barge-in in the shared UI; Android `RECORD_AUDIO` + `<queries>` and the Windows microphone capability. **MAUI recognition is blocked** — see the voice section. Server-side ElevenLabs is still deferred and remains opt-in.
 6. **Android head.** Manifest permissions, `ApplicationId`, reaching the VPS over HTTPS from a phone.
 7. **Deployment.** SQL Server on the VPS, systemd units for Server and Web, reverse proxy + Let's Encrypt, `dotnet ef migrations bundle`, backups.
 8. **Discord.** Convert to a generic-host worker; slash commands → HTTP client → Server. Nothing depends on it; it is the proof that the client/server split is clean.

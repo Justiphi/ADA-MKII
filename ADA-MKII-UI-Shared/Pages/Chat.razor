@@ -4,8 +4,11 @@
 @using ADA_MKII_Core.Contracts
 @using ADA_MKII_UI_Shared.Models
 @using System.Net.Http
+@using System.Globalization
 @implements IAsyncDisposable
 @inject IAssistantPipeline Pipeline
+@inject ISpeechToTextService Stt
+@inject ITextToSpeechService Tts
 @inject IAuthClient Auth
 @inject ADA_MKII_UI_Shared.Services.SessionState Session
 @inject NavigationManager Navigation
@@ -50,6 +53,20 @@
     </div>
 
     <form class="composer" @onsubmit="SendAsync" @onsubmit:preventDefault>
+
+        @if (Stt.IsSupported)
+        {
+            <button type="button"
+                    class="composer-mic @(_voice == VoiceSessionState.Listening ? "listening" : string.Empty)"
+                    title="@(_voice == VoiceSessionState.Listening ? "Stop listening" : "Speak")"
+                    aria-label="@(_voice == VoiceSessionState.Listening ? "Stop listening" : "Speak")"
+                    aria-pressed="@(_voice == VoiceSessionState.Listening)"
+                    disabled="@_busy"
+                    @onclick="ToggleListenAsync">
+                @(_voice == VoiceSessionState.Listening ? "■" : "🎤")
+            </button>
+        }
+
         @* Enter is handled explicitly rather than relying on the form's implicit
            submission, which does not fire reliably here - and a chat UI where
            Enter does not send is broken. Shift+Enter is left free for when this
@@ -83,6 +100,8 @@
     private string? _error;
     private Guid? _conversationId;
     private CancellationTokenSource? _cts;
+    private CancellationTokenSource? _listenCts;
+    private VoiceSessionState _voice = VoiceSessionState.Idle;
 
     protected override async Task OnInitializedAsync()
     {
@@ -205,9 +224,82 @@
             _cts = null;
             StateHasChanged();
         }
+
+        // Speak the finished reply, not the deltas - synthesising fragments as
+        // they stream produces stuttering nonsense.
+        if (Tts.IsSupported && _error is null && reply.Content.Length > 0)
+        {
+            _voice = VoiceSessionState.Speaking;
+            StateHasChanged();
+
+            await Tts.SpeakAsync(reply.Content, CancellationToken.None);
+
+            _voice = VoiceSessionState.Idle;
+            StateHasChanged();
+        }
     }
 
     private void Stop() => _cts?.Cancel();
+
+    /// <summary>
+    /// Push-to-talk. Deliberately not a wake word: always-on listening costs
+    /// battery and false triggers, and is not worth it yet - see CLAUDE.md.
+    /// </summary>
+    private async Task ToggleListenAsync()
+    {
+        if (_voice == VoiceSessionState.Listening)
+        {
+            await _listenCts!.CancelAsync();
+            return;
+        }
+
+        // Barge-in: never listen while speaking, or ADA hears itself.
+        await Tts.StopAsync();
+
+        if (!await Stt.RequestPermissionAsync(CancellationToken.None))
+        {
+            _error = "Microphone access was denied.";
+            return;
+        }
+
+        _listenCts = new CancellationTokenSource();
+        _voice = VoiceSessionState.Listening;
+        _error = null;
+
+        try
+        {
+            await foreach (var partial in Stt.ListenAsync(CultureInfo.CurrentCulture, _listenCts.Token))
+            {
+                // Partials replace the draft rather than append: each one is the
+                // recogniser's best guess at the whole utterance so far.
+                _draft = partial.Text;
+                StateHasChanged();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The user stopped listening.
+        }
+        catch (InvalidOperationException ex)
+        {
+            // The JS side reports unsupported browsers and denied microphones here.
+            _error = ex.Message;
+        }
+        finally
+        {
+            _listenCts?.Dispose();
+            _listenCts = null;
+            _voice = VoiceSessionState.Idle;
+            StateHasChanged();
+        }
+
+        // Send straight away when something was heard: having to reach for the
+        // keyboard after speaking defeats the point.
+        if (!string.IsNullOrWhiteSpace(_draft) && _error is null)
+        {
+            await SendAsync();
+        }
+    }
 
     /// <summary>
     /// Starts a fresh thread. Clearing the id is enough: the server creates a new
