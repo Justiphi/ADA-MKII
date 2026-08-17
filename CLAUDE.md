@@ -78,10 +78,12 @@ Discord       → Core
 **Mechanical check:** `API` and `Data` have exactly one consumer — `Server`. Therefore no head transitively pulls `Microsoft.EntityFrameworkCore.*`, `Microsoft.Data.SqlClient`, `OpenAI` or `ElevenLabs-DotNet`. Verify with:
 
 ```bash
-dotnet list ADA-MKII-UI/ADA-MKII-UI.csproj package --include-transitive
+powershell -NoProfile -ExecutionPolicy Bypass -File .claude/skills/ada-dev/scripts/check-layering.ps1
 ```
 
-An EF Core or provider-SDK hit in `UI`, `Web` or `Discord` is a layering violation, not a curiosity.
+It exits non-zero on a violation, so it doubles as a CI gate. An EF Core or provider-SDK hit in `UI`, `Web`, `Discord` or `UI-Shared` is a layering violation, not a curiosity.
+
+> **Operational commands** — migrations, running the heads, smoke-testing the API, and the causes of this repo's recurring build failures — are documented in the `ada-dev` skill at `.claude/skills/ada-dev/SKILL.md`. This file stays the source of truth for architecture; that one for procedure.
 
 Core carries the HTTP client SDK (`HttpConversationStore`, `HttpSettingsStore`) as a consequence of the 8-project choice. Core therefore takes `Microsoft.Extensions.Http` and `Microsoft.Extensions.Http.Resilience` — but still no EF, no MAUI, no ASP.NET, no provider SDKs.
 
