@@ -16,6 +16,16 @@ public sealed class WebSpeechModule(IJSRuntime js) : IAsyncDisposable
     public async ValueTask<IJSObjectReference> GetAsync(CancellationToken cancellationToken) =>
         _module ??= await js.InvokeAsync<IJSObjectReference>("import", cancellationToken, ModulePath);
 
+    /// <summary>
+    /// The module if it has already been imported, otherwise null - never imports.
+    ///
+    /// Teardown paths must use this. Importing during disposal is what breaks
+    /// static prerendering: the scoped service is disposed at the end of the
+    /// render, JS interop is not available there, and the resulting
+    /// InvalidOperationException surfaces as a 500 rather than a page.
+    /// </summary>
+    public IJSObjectReference? Current => _module;
+
     public async ValueTask DisposeAsync()
     {
         if (_module is null)

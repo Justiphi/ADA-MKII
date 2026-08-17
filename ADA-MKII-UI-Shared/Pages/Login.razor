@@ -1,5 +1,6 @@
 @page "/login"
 @using ADA_MKII_Core.Abstractions
+@using ADA_MKII_Core.Client
 @using ADA_MKII_UI_Shared.Services
 @using System.Net.Http
 @inject IAuthClient Auth
@@ -106,9 +107,15 @@
             Session.SignedIn(result.Account);
             Navigation.NavigateTo("/");
         }
-        catch (HttpRequestException)
+        catch (AdaUnreachableException)
         {
-            _error = "Cannot reach the ADA server. Check that it is running.";
+            // Name the address that failed. On a phone this is usually a typo or
+            // a machine that is not on the same network, and neither is guessable
+            // from "cannot reach the server".
+            _error = $"No response from {Server.BaseAddress.Authority}. "
+                + (Server.CanEdit
+                    ? "Check the address and that the server is running."
+                    : "Check that the server is running.");
         }
         finally
         {

@@ -42,6 +42,33 @@ public abstract class AuthenticatedHttpClient(HttpClient http, ISessionStore ses
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
 
-        return await Http.SendAsync(request, completionOption, cancellationToken);
+        try
+        {
+            return await Http.SendAsync(request, completionOption, cancellationToken);
+        }
+        catch (Exception ex) when (IsUnreachable(ex, cancellationToken))
+        {
+            // Collapse the several ways "the server is not there" arrives into
+            // one exception, so callers do not have to know about the transport
+            // or the resilience pipeline to handle it.
+            throw new AdaUnreachableException(Http.BaseAddress, ex);
+        }
+    }
+
+    private static bool IsUnreachable(Exception exception, CancellationToken cancellationToken)
+    {
+        // A caller that cancelled deliberately - a stopped chat turn, a closed
+        // page - has not encountered an unreachable server.
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
+
+        return exception is HttpRequestException
+            or TaskCanceledException
+            or TimeoutException
+            // Polly's timeout, raised when the resilience pipeline exhausts its
+            // budget. Matched by name so this type does not leak into callers.
+            || exception.GetType().FullName == "Polly.Timeout.TimeoutRejectedException";
     }
 }

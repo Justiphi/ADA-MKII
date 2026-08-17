@@ -10,6 +10,7 @@
 @inject ISpeechToTextService Stt
 @inject ITextToSpeechService Tts
 @inject ADA_MKII_UI_Shared.Services.VoicePreferences VoicePrefs
+@inject IServerAddressProvider Server
 @inject IAuthClient Auth
 @inject ADA_MKII_UI_Shared.Services.SessionState Session
 @inject NavigationManager Navigation
@@ -18,7 +19,34 @@
 
 @if (!_ready)
 {
-    <p class="chat-empty">Loading…</p>
+    @* Name the server. "Loading" tells a user nothing when the thing being
+       waited on is a machine they may have forgotten to start. *@
+    <p class="chat-empty">Connecting to @Server.BaseAddress.Authority…</p>
+    return;
+}
+
+@if (_unreachable)
+{
+    <div class="chat-offline" role="alert">
+        <h1>Cannot reach ADA</h1>
+        <p>No response from <strong>@Server.BaseAddress</strong>.</p>
+        <p class="settings-hint">
+            Check the server is running and that this device can reach it.
+            @if (Server.CanEdit)
+            {
+                <span>If the address is wrong, sign in again to change it.</span>
+            }
+        </p>
+        <div class="chat-offline-actions">
+            <button type="button" class="composer-button" @onclick="RetryAsync">Try again</button>
+            @if (Server.CanEdit)
+            {
+                <button type="button" class="settings-back" @onclick="@(() => Navigation.NavigateTo("/login"))">
+                    Change server
+                </button>
+            }
+        </div>
+    </div>
     return;
 }
 
@@ -100,13 +128,25 @@
     private string _draft = string.Empty;
     private bool _busy;
     private bool _ready;
+    private bool _unreachable;
     private string? _error;
     private Guid? _conversationId;
     private CancellationTokenSource? _cts;
     private CancellationTokenSource? _listenCts;
     private VoiceSessionState _voice = VoiceSessionState.Idle;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => ConnectAsync();
+
+    private async Task RetryAsync()
+    {
+        _unreachable = false;
+        _ready = false;
+        StateHasChanged();
+
+        await ConnectAsync();
+    }
+
+    private async Task ConnectAsync()
     {
         // A stored token may still be valid from a previous run, so ask the
         // server who we are before sending anyone to the login page.
@@ -124,23 +164,23 @@
 
                 Session.SignedIn(account);
             }
-            catch (HttpRequestException)
+            catch (AdaUnreachableException)
             {
-                _error = "Cannot reach the ADA server. Check that it is running.";
+                _unreachable = true;
                 _ready = true;
                 return;
             }
         }
 
         // Voice preferences decide whether the microphone appears at all, so they
-        // must be loaded before the first render of the composer.
+        // must be loaded before the first render of the composer. A failure here
+        // is not worth blocking chat over - the documented defaults stand.
         try
         {
             await VoicePrefs.LoadAsync(CancellationToken.None);
         }
-        catch (HttpRequestException)
+        catch (AdaUnreachableException)
         {
-            // Defaults stand; voice is not important enough to block the chat.
         }
 
         _ready = true;
@@ -222,9 +262,9 @@
                 ? "This device is not authorised. Check its access token."
                 : $"ADA could not respond: {ex.Message}";
         }
-        catch (HttpRequestException)
+        catch (AdaUnreachableException)
         {
-            _error = "Cannot reach the ADA server. Check that it is running.";
+            _error = $"Lost contact with {Server.BaseAddress.Authority}. The reply may not have been saved.";
         }
         finally
         {

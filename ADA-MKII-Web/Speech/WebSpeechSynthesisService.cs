@@ -35,14 +35,20 @@ public sealed class WebSpeechSynthesisService(WebSpeechModule module) : ITextToS
 
     public async Task StopAsync()
     {
+        // Nothing can be speaking if the module was never loaded, and importing
+        // it here would fail during prerendering.
+        if (module.Current is not { } speech)
+        {
+            return;
+        }
+
         try
         {
-            var speech = await module.GetAsync(CancellationToken.None);
             await speech.InvokeVoidAsync("stopSpeaking");
         }
-        catch (JSDisconnectedException)
+        catch (Exception ex) when (ex is JSDisconnectedException or InvalidOperationException)
         {
-            // Circuit gone; the browser stopped playback with the page.
+            // Circuit gone, or no JS runtime available.
         }
     }
 }

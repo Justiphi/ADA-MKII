@@ -23,13 +23,13 @@ public static class AdaClientServiceCollectionExtensions
         // handlers are built in the handler pool's DI scope and would resolve the
         // wrong ISessionStore on a per-user head.
         services.AddHttpClient<IConversationStore, HttpConversationStore>(ConfigureClient)
-            .AddStandardResilienceHandler();
+            .AddStandardResilienceHandler(ConfigureResilience);
 
         services.AddHttpClient<ISettingsStore, HttpSettingsStore>(ConfigureClient)
-            .AddStandardResilienceHandler();
+            .AddStandardResilienceHandler(ConfigureResilience);
 
         services.AddHttpClient<IAuthClient, HttpAuthClient>(ConfigureClient)
-            .AddStandardResilienceHandler();
+            .AddStandardResilienceHandler(ConfigureResilience);
 
         // No resilience handler on the chat client: its total-request timeout
         // would abort a long streaming turn, and retrying a partially consumed
@@ -37,6 +37,22 @@ public static class AdaClientServiceCollectionExtensions
         services.AddHttpClient<IAssistantPipeline, HttpAssistantPipeline>(ConfigureClient);
 
         return services;
+
+        // The defaults are tuned for a service riding out transient faults with
+        // nobody watching: 30 seconds total across three retries. Here a person is
+        // waiting at a login screen, and a server that is simply down should say
+        // so in seconds rather than after half a minute of silence.
+        //
+        // The constraints are checked at startup: AttemptTimeout must be at most
+        // half of TotalRequestTimeout, and CircuitBreaker.SamplingDuration at
+        // least twice AttemptTimeout.
+        static void ConfigureResilience(Microsoft.Extensions.Http.Resilience.HttpStandardResilienceOptions options)
+        {
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(5);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(12);
+            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(10);
+            options.Retry.MaxRetryAttempts = 2;
+        }
 
         // Runs each time a typed client is constructed, so an address the user
         // changed at runtime takes effect without restarting the app.

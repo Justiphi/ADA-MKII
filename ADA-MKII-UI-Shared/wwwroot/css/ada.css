@@ -113,6 +113,36 @@ body {
     border-color: rgba(255, 255, 255, 0.3);
 }
 
+/* ---- Cannot reach the server ---- */
+
+.chat-offline {
+    margin: auto;
+    max-width: 30rem;
+    text-align: center;
+}
+
+.chat-offline h1 {
+    font-size: 1.3rem;
+    margin-bottom: 0.75rem;
+}
+
+.chat-offline strong {
+    color: var(--ada-text);
+    overflow-wrap: anywhere;
+}
+
+.chat-offline p {
+    color: var(--ada-muted);
+    line-height: 1.55;
+}
+
+.chat-offline-actions {
+    display: flex;
+    gap: 0.6rem;
+    justify-content: center;
+    margin-top: 1.25rem;
+}
+
 /* ---- Settings ---- */
 
 .settings {

@@ -218,7 +218,9 @@ Use **source-generated `[LoggerMessage]` methods**, not `logger.LogInformation(.
 
 **Error handling.**
 - Server returns RFC 9457 `ProblemDetails` for every failure (`AddProblemDetails()` + exception handler middleware). No raw exception text to clients.
-- The HTTP client maps non-2xx to a typed `AdaApiException(ProblemDetails, HttpStatusCode)`.
+- The HTTP client maps non-2xx to a typed `AdaApiException(ProblemDetails, HttpStatusCode)`, and an unreachable server to `AdaUnreachableException`. **Catch the latter, not the transport exceptions.** A dead server surfaces as `HttpRequestException`, `TaskCanceledException` or Polly's `TimeoutRejectedException` depending on which layer gave up first; getting that set right in every component is a trap, and missing one turns an offline server into a 500.
+- Client resilience is tuned for a person waiting, not a background service: 5 s per attempt, 12 s total, two retries. The defaults (30 s across three retries) leave a login screen silent for half a minute when the server is simply off.
+- **JS interop must not run during static prerendering**, including from `DisposeAsync` — the scoped service is disposed at the end of the render, when no JS runtime exists. Teardown paths use `WebSpeechModule.Current`, which returns the module only if already imported, rather than `GetAsync`, which would import it.
 - Outbound provider calls are wrapped in `Microsoft.Extensions.Http.Resilience` (retry with jitter, total timeout, circuit breaker) — this protects against provider flakiness and bounds cost during an outage.
 - Never swallow exceptions. Never `catch { }`.
 

@@ -93,7 +93,7 @@
         {
             await Voice.LoadAsync(CancellationToken.None);
         }
-        catch (HttpRequestException)
+        catch (AdaUnreachableException)
         {
             _error = "Cannot reach the ADA server, so settings could not be loaded.";
         }
@@ -127,7 +127,7 @@
         {
             await save();
         }
-        catch (HttpRequestException)
+        catch (AdaUnreachableException)
         {
             _error = "Cannot reach the ADA server. The change was not saved.";
         }

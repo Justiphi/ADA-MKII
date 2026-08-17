@@ -83,14 +83,19 @@ public sealed class WebSpeechToTextService(WebSpeechModule module) : ISpeechToTe
         _channel?.Writer.TryComplete();
         _channel = null;
 
-        try
+        // Only if the module was actually loaded. Nothing can be listening
+        // otherwise, and importing it here would fail during prerendering.
+        if (module.Current is { } speech)
         {
-            var speech = await module.GetAsync(CancellationToken.None);
-            await speech.InvokeVoidAsync("stopRecognition");
-        }
-        catch (JSDisconnectedException)
-        {
-            // Circuit gone; the browser tore the recogniser down with the page.
+            try
+            {
+                await speech.InvokeVoidAsync("stopRecognition");
+            }
+            catch (Exception ex) when (ex is JSDisconnectedException or InvalidOperationException)
+            {
+                // Circuit gone, or no JS runtime available - either way the
+                // browser has already torn the recogniser down with the page.
+            }
         }
 
         _self?.Dispose();
