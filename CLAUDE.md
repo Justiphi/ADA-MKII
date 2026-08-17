@@ -157,9 +157,18 @@ All interfaces live in `ADA_MKII_Core.Abstractions`.
 
 Bind config with the options pattern and `.ValidateDataAnnotations().ValidateOnStart()` so a missing key fails at boot, not at first request.
 
-**Client token storage:** MAUI → `SecureStorage` under the key `MauiProgram.DeviceTokenKey`; Web head → `Ada:Client:Token` in server-side config (user-secrets in dev), read on the server and never rendered into the browser; Discord → environment variable.
+### Finding the server
 
-The MAUI head reaches the server at `localhost:5100` on Windows but **`10.0.2.2:5100` on Android** — the emulator's alias for the host loopback. A physical device needs the LAN or public address instead; see `ServerBaseAddress` in `MauiProgram.cs`.
+`IServerAddressProvider` answers "where is ADA-MKII-Server". It cannot be a normal setting: you need the address before you can ask the server anything, so it is device-local by necessity.
+
+| Head | Source | Editable |
+|---|---|---|
+| Web | `Ada:Client:BaseAddress` in config | No — deployed next to a known server |
+| MAUI | `Preferences`, with a field on the login screen | **Yes** — the app ships not knowing which server it will talk to |
+
+The MAUI default is `10.0.2.2:5100` on Android (the emulator's alias for the host loopback) and `localhost:5100` on Windows. Those are starting points only: a physical phone must be pointed at a LAN address, a tunnel, or a domain, which is exactly why the field exists. The address is read each time a typed client is constructed, so a change takes effect without restarting the app.
+
+A hostname is not a secret, so it lives in `Preferences`, not `SecureStorage`. The bearer token is, and it does not.
 
 ### Accounts and login
 
@@ -302,7 +311,7 @@ Critical path is **0 → 1 → 2 → 3 → 4**. Voice, Android and Discord are l
 4. **Blazor UI — COMPLETE.** `Chat.razor` in `UI-Shared`: streaming reply, Stop, New chat, per-turn token display, and typed error handling for auth failure and an unreachable server. Both heads compose `AddAdaClient()` + `AddAdaSharedUi()`. Verified end to end in the browser, and the MAUI Windows app was launched and confirmed to render the identical shared UI.
    **Open gap:** the MAUI app has no way to enter a device token, so it cannot yet authenticate. A settings screen writing to `SecureStorage` under `MauiProgram.DeviceTokenKey` is the missing piece — do this before phase 6.
 5. **Voice — PARTLY COMPLETE.** `ISpeechToTextService`/`ITextToSpeechService` and `VoiceSessionState` in Core; Web Speech recognition and synthesis in the Web head; MAUI synthesis via Essentials; push-to-talk mic button with barge-in in the shared UI; Android `RECORD_AUDIO` + `<queries>` and the Windows microphone capability. **MAUI recognition is blocked** — see the voice section. Server-side ElevenLabs is still deferred and remains opt-in.
-6. **Android head.** Manifest permissions, `ApplicationId`, reaching the VPS over HTTPS from a phone.
+6. **Android head — COMPLETE apart from running it.** Manifest permissions and `ApplicationId` landed earlier; this phase added the runtime-configurable server address (`IServerAddressProvider` plus a field on the login screen) and an Android network security config that keeps cleartext HTTP off everywhere except the named development hosts. **The app has never been run on Android** — this machine has no emulator, system image or connected device, so only the build and the APK contents are verified.
 7. **Deployment.** SQL Server on the VPS, systemd units for Server and Web, reverse proxy + Let's Encrypt, `dotnet ef migrations bundle`, backups.
 8. **Discord.** Convert to a generic-host worker; slash commands → HTTP client → Server. Nothing depends on it; it is the proof that the client/server split is clean.
 

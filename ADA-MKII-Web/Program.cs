@@ -14,11 +14,12 @@ builder.Services.AddRazorComponents()
 // token lives in server memory for the duration of their circuit. It never sees
 // the SQL credentials or a provider API key, and the token is never rendered
 // into the browser.
-var baseAddress = builder.Configuration[$"{AdaClientOptions.SectionName}:BaseAddress"]
+var baseAddress = builder.Configuration["Ada:Client:BaseAddress"]
     ?? throw new InvalidOperationException(
         "Ada:Client:BaseAddress is not configured. Point it at ADA-MKII-Server.");
 
-builder.Services.AddAdaClient(options => options.BaseAddress = new Uri(baseAddress));
+builder.Services.AddSingleton<IServerAddressProvider>(new FixedServerAddressProvider(new Uri(baseAddress)));
+builder.Services.AddAdaClient();
 builder.Services.AddScoped<ISessionStore, ScopedSessionStore>();
 builder.Services.AddAdaSharedUi();
 

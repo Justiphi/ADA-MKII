@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android blocks cleartext HTTP by default from API 28 onwards. Production is
+    HTTPS-only and stays that way - the API is internet-facing, and a bearer token
+    over plain HTTP is a token anyone on the path can take.
+
+    The exceptions below exist only so a development server on a private network
+    is reachable while building:
+      10.0.2.2   the emulator's alias for the host machine's loopback
+      localhost  a server running on the device itself
+      192.168.*  cannot be expressed as a wildcard here; add your own LAN address
+                 as another <domain> entry if you test against a real phone
+
+    Everything not listed still requires HTTPS.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>

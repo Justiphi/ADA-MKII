@@ -4,6 +4,7 @@
 @using System.Net.Http
 @inject IAuthClient Auth
 @inject SessionState Session
+@inject IServerAddressProvider Server
 @inject NavigationManager Navigation
 
 <PageTitle>Sign in — ADA</PageTitle>
@@ -12,6 +13,16 @@
     <h1>Sign in</h1>
 
     <form class="login-form" @onsubmit="SubmitAsync" @onsubmit:preventDefault>
+
+        @* Only where the head does not already know its server. The web head is
+           deployed next to one and configured by whoever deployed it. *@
+        @if (Server.CanEdit)
+        {
+            <label class="login-label" for="server">ADA server</label>
+            <input id="server" class="login-input" @bind="_server" @bind:event="oninput"
+                   placeholder="https://ada.example.com" inputmode="url" disabled="@_busy" />
+        }
+
         <label class="login-label" for="username">Username</label>
         <input id="username" class="login-input" @bind="_username" @bind:event="oninput"
                autocomplete="username" disabled="@_busy" />
@@ -38,10 +49,13 @@
 @code {
     private string _username = string.Empty;
     private string _password = string.Empty;
+    private string _server = string.Empty;
     private bool _busy;
     private string? _error;
 
     private bool CanSubmit => _username.Trim().Length > 0 && _password.Length > 0;
+
+    protected override void OnInitialized() => _server = Server.BaseAddress.ToString();
 
     private async Task OnKeyDownAsync(KeyboardEventArgs args)
     {
@@ -60,6 +74,21 @@
 
         _busy = true;
         _error = null;
+
+        // Save the address before logging in - the login request itself has to go
+        // to whatever the user just typed.
+        if (Server.CanEdit)
+        {
+            if (!Uri.TryCreate(_server.Trim(), UriKind.Absolute, out var address)
+                || (address.Scheme != Uri.UriSchemeHttp && address.Scheme != Uri.UriSchemeHttps))
+            {
+                _error = "Enter a full server address, for example https://ada.example.com";
+                _busy = false;
+                return;
+            }
+
+            await Server.SetAsync(address, CancellationToken.None);
+        }
 
         try
         {

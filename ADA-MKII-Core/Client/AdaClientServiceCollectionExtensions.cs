@@ -1,7 +1,5 @@
-using System.Net.Http.Headers;
 using ADA_MKII_Core.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 
 namespace ADA_MKII_Core.Client;
 
@@ -16,14 +14,9 @@ public static class AdaClientServiceCollectionExtensions
     /// The head must also register an <see cref="ISessionStore"/>, since where a
     /// token may safely be kept is a platform question.
     /// </summary>
-    public static IServiceCollection AddAdaClient(
-        this IServiceCollection services,
-        Action<AdaClientOptions> configure)
+    public static IServiceCollection AddAdaClient(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(configure);
-
-        services.Configure(configure);
 
         // The bearer token is attached inside the clients (see
         // AuthenticatedHttpClient) rather than by a DelegatingHandler, because
@@ -45,11 +38,14 @@ public static class AdaClientServiceCollectionExtensions
 
         return services;
 
+        // Runs each time a typed client is constructed, so an address the user
+        // changed at runtime takes effect without restarting the app.
         static void ConfigureClient(IServiceProvider provider, HttpClient client)
         {
-            var options = provider.GetRequiredService<IOptions<AdaClientOptions>>().Value;
-            client.BaseAddress = options.BaseAddress
-                ?? throw new InvalidOperationException("AdaClientOptions.BaseAddress is not configured.");
+            client.BaseAddress = provider.GetRequiredService<IServerAddressProvider>().BaseAddress;
+
+            // No client-level timeout: the chat stream is long-lived by design,
+            // and per-request deadlines belong to the resilience handlers.
             client.Timeout = Timeout.InfiniteTimeSpan;
         }
     }

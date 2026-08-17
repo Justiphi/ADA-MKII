@@ -12,18 +12,6 @@ namespace ADA_MKII_UI;
 
 public static class MauiProgram
 {
-    /// <summary>
-    /// Where ADA-MKII-Server lives. Android cannot reach the host's "localhost",
-    /// so 10.0.2.2 is the emulator's alias for it; a real device needs the LAN or
-    /// public address instead.
-    /// </summary>
-    private const string ServerBaseAddress =
-#if ANDROID
-        "http://10.0.2.2:5100";
-#else
-        "http://localhost:5100";
-#endif
-
     public static MauiApp CreateMauiApp()
     {
         var builder = MauiApp.CreateBuilder();
@@ -43,7 +31,8 @@ public static class MauiProgram
 
         // The same UI as the web head, over the same abstractions. This project
         // supplies only what is device-specific.
-        builder.Services.AddAdaClient(options => options.BaseAddress = new Uri(ServerBaseAddress));
+        builder.Services.AddSingleton<IServerAddressProvider, PreferencesServerAddressProvider>();
+        builder.Services.AddAdaClient();
         builder.Services.AddSingleton<ISessionStore, SecureStorageSessionStore>();
         builder.Services.AddAdaSharedUi();
 
