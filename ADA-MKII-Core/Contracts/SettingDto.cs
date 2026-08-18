@@ -22,6 +22,16 @@ public static class SettingKeys
     public const string HistoryMessageLimit = "llm.historyMessageLimit";
 
     /// <summary>
+    /// Whether to offer tools to the model. On by default.
+    ///
+    /// An escape hatch, not a feature: most OpenAI-compatible servers ignore
+    /// tools they cannot honour, but some reject the request outright, which
+    /// would break chat entirely rather than just losing tool calls. Turning this
+    /// off keeps ADA usable on such a backend.
+    /// </summary>
+    public const string ToolsEnabled = "llm.toolsEnabled";
+
+    /// <summary>
     /// Tokens permitted per calendar month; 0 disables the guard. Tokens rather
     /// than currency: counts are exact and provider-independent, while a price
     /// table goes stale and varies per model.

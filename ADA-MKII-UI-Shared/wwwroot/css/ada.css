@@ -926,3 +926,12 @@ body {
         white-space: nowrap;
     }
 }
+
+/* What ADA is doing while it is not talking. Sits under the bubble body so the
+   reply does not jump when the tool finishes and prose starts arriving. */
+.bubble-tool {
+    margin-top: 0.35rem;
+    font-size: 0.8rem;
+    color: var(--ada-muted);
+    font-style: italic;
+}

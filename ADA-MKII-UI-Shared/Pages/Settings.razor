@@ -101,6 +101,18 @@
                 </span>
             </label>
 
+            <label class="settings-row">
+                <input type="checkbox" checked="@_toolsEnabled" @onchange="OnToolsChanged" disabled="@_saving" />
+                <span>
+                    <span class="settings-label">Let ADA use tools</span>
+                    <span class="settings-hint">
+                        Lets ADA take notes, add calendar events and remember things for you, rather than
+                        only talking about them. Turn this off if your endpoint rejects requests that offer
+                        tools — some smaller servers do.
+                    </span>
+                </span>
+            </label>
+
             <button type="button" class="composer-button" @onclick="SaveModelAsync" disabled="@_saving">
                 Save
             </button>
@@ -132,7 +144,11 @@
     private string? _error;
     private string _baseUrl = string.Empty;
     private string _model = string.Empty;
+    private bool _toolsEnabled = true;
     private bool _modelSaved;
+
+    private void OnToolsChanged(ChangeEventArgs args) =>
+        _toolsEnabled = args.Value is true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -144,6 +160,11 @@
             // so an empty box is a real value here, not a missing one.
             _baseUrl = await SettingsStore.GetAsync<string>(SettingKeys.BaseUrl, CancellationToken.None) ?? string.Empty;
             _model = await SettingsStore.GetAsync<string>(SettingKeys.Model, CancellationToken.None) ?? string.Empty;
+
+            // Absent means on: tools are the default, and a fresh account has
+            // never written this key.
+            var tools = await SettingsStore.GetAsync<string>(SettingKeys.ToolsEnabled, CancellationToken.None);
+            _toolsEnabled = !bool.TryParse(tools, out var parsed) || parsed;
         }
         catch (AdaUnreachableException)
         {
@@ -185,6 +206,7 @@
         {
             await SettingsStore.SetAsync(SettingKeys.BaseUrl, url, CancellationToken.None);
             await SettingsStore.SetAsync(SettingKeys.Model, _model.Trim(), CancellationToken.None);
+            await SettingsStore.SetAsync(SettingKeys.ToolsEnabled, _toolsEnabled, CancellationToken.None);
             _modelSaved = true;
         });
     }

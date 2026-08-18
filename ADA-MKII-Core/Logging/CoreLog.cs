@@ -15,6 +15,18 @@ internal static partial class CoreLog
     public static partial void BudgetExhausted(ILogger logger, long used, long budget);
 
     [LoggerMessage(
+        EventId = 2002,
+        Level = LogLevel.Information,
+        Message = "Tool {Tool} invoked.")]
+    public static partial void ToolInvoked(ILogger logger, string tool);
+
+    [LoggerMessage(
+        EventId = 2003,
+        Level = LogLevel.Warning,
+        Message = "Tool loop hit its ceiling of {Limit} iterations; answering with what the model had.")]
+    public static partial void ToolLoopExhausted(ILogger logger, int limit);
+
+    [LoggerMessage(
         EventId = 2001,
         Level = LogLevel.Information,
         Message = "Turn complete on {Provider}/{Model}: {TokensIn} in, {TokensOut} out, {HistoryCount} history messages.")]

@@ -16,6 +16,13 @@ public sealed class ChatTurn
     /// <summary>True while deltas are still arriving, so the view can show a caret.</summary>
     public bool IsStreaming { get; set; }
 
+    /// <summary>
+    /// The tool ADA is running right now, or null. Transient and never persisted:
+    /// it exists so the pause while a tool runs is explained rather than looking
+    /// like the reply has stalled.
+    /// </summary>
+    public string? ActiveTool { get; set; }
+
     public int TokensIn { get; set; }
 
     public int TokensOut { get; set; }

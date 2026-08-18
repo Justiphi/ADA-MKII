@@ -14,6 +14,7 @@
 @inject IAuthClient Auth
 @inject ADA_MKII_UI_Shared.Services.SessionState Session
 @inject NavigationManager Navigation
+@inject ADA_MKII_UI_Shared.Services.TimeZoneState Zone
 
 <PageTitle>ADA</PageTitle>
 
@@ -68,6 +69,10 @@
         {
             <div class="bubble @RoleClass(turn.Role)">
                 <div class="bubble-body">@turn.Content@(turn.IsStreaming ? "▋" : string.Empty)</div>
+                @if (turn.ActiveTool is { } tool)
+                {
+                    <div class="bubble-tool">@ToolLabel(tool)</div>
+                }
                 @if (turn.TokensIn + turn.TokensOut > 0)
                 {
                     <div class="bubble-meta">@turn.TokensIn in / @turn.TokensOut out</div>
@@ -137,6 +142,28 @@
 
     protected override Task OnInitializedAsync() => ConnectAsync();
 
+    /// <summary>
+    /// Asks the browser which zone it is in, once the page is live enough to run
+    /// JS. It has to be here rather than in OnInitializedAsync: during static
+    /// prerendering there is no JS runtime to call into.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            await Zone.EnsureResolvedAsync(CancellationToken.None);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit went away mid-render; the zone simply stays UTC.
+        }
+    }
+
     private async Task RetryAsync()
     {
         _unreachable = false;
@@ -186,6 +213,21 @@
         _ready = true;
     }
 
+    /// <summary>
+    /// Says what ADA is doing in words a person would use. Falls back to the raw
+    /// name so a tool added later still shows something honest rather than nothing.
+    /// </summary>
+    private static string ToolLabel(string tool) => tool switch
+    {
+        "create_note" => "Writing that down…",
+        "search_notes" => "Looking through your notes…",
+        "create_event" => "Adding it to your calendar…",
+        "list_events" => "Checking your calendar…",
+        "remember" => "Committing that to memory…",
+        "recall" => "Remembering…",
+        _ => $"Running {tool}…",
+    };
+
     private static string RoleClass(ChatRole role) => role switch
     {
         ChatRole.User => "user",
@@ -226,12 +268,22 @@
 
         try
         {
-            await foreach (var evt in Pipeline.RunAsync(new ChatRequest(_conversationId, message), _cts.Token))
+            // The zone travels with the turn: the server cannot work out where the
+            // user is, and "remind me tomorrow at 3" depends entirely on it.
+            var chatRequest = new ChatRequest(_conversationId, message) { TimeZoneId = Zone.Id };
+
+            await foreach (var evt in Pipeline.RunAsync(chatRequest, _cts.Token))
             {
                 switch (evt.Type)
                 {
                     case ChatStreamEvent.DeltaType:
+                        // Any prose means the tool phase is over for now.
+                        reply.ActiveTool = null;
                         reply.Content += evt.Text;
+                        break;
+
+                    case ChatStreamEvent.ToolType:
+                        reply.ActiveTool = evt.Text;
                         break;
 
                     case ChatStreamEvent.DoneType:
@@ -269,6 +321,7 @@
         finally
         {
             reply.IsStreaming = false;
+            reply.ActiveTool = null;
 
             if (reply.Content.Length == 0)
             {
