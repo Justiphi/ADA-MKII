@@ -6,6 +6,7 @@ using ADA_MKII_Data;
 using ADA_MKII_Server.Auth;
 using ADA_MKII_Server.Endpoints;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Serilog;
 
@@ -35,6 +36,14 @@ builder.Services.AddAuthentication(DeviceTokenAuthenticationHandler.SchemeName)
     .AddScheme<AuthenticationSchemeOptions, DeviceTokenAuthenticationHandler>(
         DeviceTokenAuthenticationHandler.SchemeName, configureOptions: null);
 builder.Services.AddAuthorization();
+
+// Behind a reverse proxy every request arrives from 127.0.0.1. Without this the
+// per-IP rate limiters collapse into a single bucket shared by the whole
+// internet - and the login limiter, meant to slow one attacker, would lock out
+// everybody after ten attempts from anyone. Only loopback proxies are trusted by
+// default, so a forged X-Forwarded-For from outside is ignored.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto);
 
 builder.Services.AddProblemDetails();
 
@@ -67,6 +76,9 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+
+// Must run before anything that reads the client address or scheme.
+app.UseForwardedHeaders();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();

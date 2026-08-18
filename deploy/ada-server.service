@@ -1,0 +1,43 @@
+# ADA-MKII-Server — the inbound HTTP API. The only process holding SQL
+# credentials and provider keys.
+#
+# Install: /etc/systemd/system/ada-server.service
+
+[Unit]
+Description=ADA API server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+WorkingDirectory=/opt/ada/server
+ExecStart=/opt/ada/server/ADA-MKII-Server
+Restart=always
+RestartSec=5
+
+User=ada
+Group=ada
+
+# Secrets. Must be 0600 and owned by root: this file holds the SQL password
+# and the OpenAI key, and is the reason no other process needs them.
+EnvironmentFile=/etc/ada/server.env
+
+Environment=ASPNETCORE_ENVIRONMENT=Production
+# Bind to loopback only. Apache is the sole ingress; anything listening on a
+# public interface here would bypass TLS and the reverse proxy's rate limits.
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5100
+
+# Journald picks these up; Serilog is already configured to write to console.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ada-server
+
+# Hardening. The API reads no files outside its own directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/ada/server/logs
+
+[Install]
+WantedBy=multi-user.target

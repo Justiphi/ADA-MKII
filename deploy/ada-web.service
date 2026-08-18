@@ -1,0 +1,36 @@
+# ADA-MKII-Web — the Blazor Server head. Holds no database credential and no
+# provider key; it reaches the API over HTTP like any other client.
+#
+# Install: /etc/systemd/system/ada-web.service
+
+[Unit]
+Description=ADA web head
+After=network-online.target ada-server.service
+Wants=network-online.target
+
+[Service]
+Type=notify
+WorkingDirectory=/opt/ada/web
+ExecStart=/opt/ada/web/ADA-MKII-Web
+Restart=always
+RestartSec=5
+
+User=ada
+Group=ada
+
+EnvironmentFile=/etc/ada/web.env
+
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5200
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ada-web
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
