@@ -1,5 +1,6 @@
 using ADA_MKII_Core.Abstractions;
 using ADA_MKII_Core.Client;
+using ADA_MKII_Core.Notifications;
 using ADA_MKII_UI_Shared;
 using ADA_MKII_Web.Auth;
 using ADA_MKII_Web.Components;
@@ -28,6 +29,11 @@ builder.Services.AddAdaSharedUi();
 builder.Services.AddScoped<WebSpeechModule>();
 builder.Services.AddScoped<ISpeechToTextService, WebSpeechToTextService>();
 builder.Services.AddScoped<ITextToSpeechService, WebSpeechSynthesisService>();
+
+// A browser tab cannot be woken to deliver a reminder, so this head schedules
+// nothing. The shared UI still resolves the abstraction and simply skips the
+// work - see NullReminderScheduler.
+builder.Services.AddSingleton<IReminderScheduler, NullReminderScheduler>();
 
 var app = builder.Build();
 

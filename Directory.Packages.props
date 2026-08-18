@@ -66,6 +66,14 @@
     <!-- Microphone capture. The package targets net9 platform TFMs, which a net10
          platform TFM resolves against. -->
     <PackageVersion Include="Plugin.Maui.Audio" Version="4.0.0" />
+
+    <!--
+      On-device reminders. Verified to ship lib/net10.0-android36.0 and
+      lib/net10.0-windows10.0.19041 - checked rather than assumed, because the
+      MAUI ecosystem's .NET 10 coverage is uneven and this project has already
+      been caught out once by a package that dropped an API.
+    -->
+    <PackageVersion Include="Plugin.LocalNotification" Version="14.1.1" />
   </ItemGroup>
 
   <!--

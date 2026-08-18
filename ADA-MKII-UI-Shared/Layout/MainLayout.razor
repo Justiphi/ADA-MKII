@@ -5,6 +5,7 @@
 @inject SessionState Session
 @inject IAuthClient Auth
 @inject NavigationManager Navigation
+@inject ReminderSync Reminders
 
 <div class="ada-shell">
     <header class="ada-header">
@@ -35,6 +36,25 @@
 
 @code {
     protected override void OnInitialized() => Session.Changed += OnSessionChanged;
+
+    /// <summary>
+    /// Hands upcoming reminders to the device once the app is up.
+    ///
+    /// Here rather than on a page because it must happen wherever the user lands,
+    /// and here rather than in OnInitialized because on MAUI this is the point at
+    /// which a scheduler may prompt for permission. It is throttled and does
+    /// nothing at all on a head that cannot schedule, so the cost on the web is a
+    /// single branch.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !Session.IsSignedIn)
+        {
+            return;
+        }
+
+        await Reminders.SyncIfStaleAsync(CancellationToken.None);
+    }
 
     private void OnSessionChanged() => InvokeAsync(StateHasChanged);
 

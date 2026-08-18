@@ -17,6 +17,14 @@
 	<uses-permission android:name="android.permission.RECORD_AUDIO" />
 
 	<!--
+		Reminders. POST_NOTIFICATIONS is prompted for at runtime on Android 13+;
+		declaring it alone is not enough. SCHEDULE_EXACT_ALARM is deliberately NOT
+		requested: it is restricted on Android 12+, needs a justification to ship,
+		and a calendar reminder does not need alarm-clock precision.
+	-->
+	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+	<!--
 		Package visibility. Without this, SpeechRecognizer silently finds no
 		service on API 30+ and recognition fails with no useful error. Kept even
 		though recognition currently runs through Whisper on-device, since a

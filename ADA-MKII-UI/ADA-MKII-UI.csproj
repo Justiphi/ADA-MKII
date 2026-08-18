@@ -68,6 +68,7 @@
 		     .NET 10, and Windows cannot use Windows.Media.SpeechRecognition while
 		     the app is unpackaged. -->
 		<PackageReference Include="Plugin.Maui.Audio" />
+		<PackageReference Include="Plugin.LocalNotification" />
 		<PackageReference Include="Whisper.net" />
 		<PackageReference Include="Whisper.net.Runtime" />
 	</ItemGroup>

@@ -2,8 +2,10 @@ using ADA_MKII_Core.Abstractions;
 using ADA_MKII_Core.Client;
 using ADA_MKII_Core.Speech;
 using ADA_MKII_UI.Auth;
+using ADA_MKII_UI.Notifications;
 using ADA_MKII_UI.Speech;
 using ADA_MKII_UI_Shared;
+using Plugin.LocalNotification;
 using Plugin.Maui.Audio;
 using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
@@ -19,6 +21,16 @@ public static class MauiProgram
         builder
             .UseMauiApp<App>()
             .UseMauiCommunityToolkit()
+            .UseLocalNotification(notifications =>
+                // One channel, so Android's per-channel settings let the user
+                // silence reminders without silencing the app entirely.
+                notifications.AddAndroid(android => android.AddChannel(
+                    new Plugin.LocalNotification.Core.Models.AndroidOption.AndroidNotificationChannelRequest
+                    {
+                        Id = LocalNotificationReminderScheduler.ReminderChannelId,
+                        Name = "Reminders",
+                        Description = "Calendar events and reminders from ADA.",
+                    })))
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -35,6 +47,10 @@ public static class MauiProgram
         builder.Services.AddAdaClient();
         builder.Services.AddSingleton<ISessionStore, SecureStorageSessionStore>();
         builder.Services.AddAdaSharedUi();
+
+        // Reminders. Only this head can schedule anything the OS will deliver
+        // while the app is closed; the web head composes NullReminderScheduler.
+        builder.Services.AddSingleton<IReminderScheduler, LocalNotificationReminderScheduler>();
 
         // Voice. Synthesis uses MAUI Essentials and works today.
         builder.Services.AddSingleton<ITextToSpeechService, MauiTextToSpeechService>();

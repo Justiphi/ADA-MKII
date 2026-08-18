@@ -24,6 +24,11 @@ public static class AdaSharedUiServiceCollectionExtensions
         // this circuit, not to the process.
         services.AddScoped<TimeZoneState>();
 
+        // Fetches upcoming reminders and hands them to whatever the head
+        // registered as IReminderScheduler - the real one on MAUI, a no-op
+        // elsewhere. Scoped, because it reads the signed-in account's calendar.
+        services.AddScoped<ReminderSync>();
+
         // Pages date things against this rather than DateTimeOffset.UtcNow, per
         // the in-box TimeProvider convention. A head may already have registered
         // one, so do not displace it.
