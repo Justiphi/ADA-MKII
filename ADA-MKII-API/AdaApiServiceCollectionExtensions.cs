@@ -10,29 +10,23 @@ namespace ADA_MKII_API;
 public static class AdaApiServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the outbound integrations. When no OpenAI key is configured this
-    /// falls back to <see cref="EchoLlmProvider"/> rather than failing at startup,
-    /// so the server is runnable and the pipeline testable without a credential.
-    /// The chosen provider is reported in the logs on every turn.
+    /// Registers the outbound integrations.
+    ///
+    /// All three providers are registered and the choice is made per turn by
+    /// <see cref="RoutingLlmProvider"/>, rather than fixed here at startup. That
+    /// is what lets a user point a keyless server at their own OpenAI-compatible
+    /// endpoint and have it take effect immediately.
     /// </summary>
     public static IServiceCollection AddAdaProviders(this IServiceCollection services, IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        var section = configuration.GetSection(OpenAiOptions.SectionName);
-        services.Configure<OpenAiOptions>(section);
+        services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
 
-        var hasKey = !string.IsNullOrWhiteSpace(section[nameof(OpenAiOptions.ApiKey)]);
-
-        if (hasKey)
-        {
-            services.AddSingleton<ILlmProvider, OpenAiLlmProvider>();
-        }
-        else
-        {
-            services.AddSingleton<ILlmProvider, EchoLlmProvider>();
-        }
+        services.AddSingleton<OpenAiLlmProvider>();
+        services.AddSingleton<EchoLlmProvider>();
+        services.AddSingleton<ILlmProvider, RoutingLlmProvider>();
 
         return services;
     }

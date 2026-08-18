@@ -13,7 +13,14 @@ public sealed record LlmRequest(
     string Model,
     IReadOnlyList<LlmMessage> Messages,
     int MaxOutputTokens,
-    double Temperature);
+    double Temperature)
+{
+    /// <summary>
+    /// Where to send it. Null means the provider's configured default. Set when
+    /// the user points ADA at an OpenAI-compatible server of their own.
+    /// </summary>
+    public Uri? Endpoint { get; init; }
+}
 
 /// <summary>
 /// One chunk of a streamed completion. <see cref="Text"/> carries content;

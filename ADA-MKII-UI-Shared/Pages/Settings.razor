@@ -5,6 +5,7 @@
 @using ADA_MKII_UI_Shared.Services
 @using System.Net.Http
 @inject VoicePreferences Voice
+@inject ISettingsStore SettingsStore
 @inject ISpeechToTextService Stt
 @inject ITextToSpeechService Tts
 @inject NavigationManager Navigation
@@ -73,6 +74,49 @@
             </div>
         </section>
 
+        <section class="settings-group">
+            <h2>Language model</h2>
+
+            <label class="settings-row">
+                <span>
+                    <span class="settings-label">Endpoint</span>
+                    <span class="settings-hint">
+                        Any OpenAI-compatible server — Ollama, Groq, OpenRouter. Leave blank to use whatever
+                        this server was configured with. Example: <code>http://192.168.1.10:11434/v1</code>
+                    </span>
+                    <input class="login-input settings-input" @bind="_baseUrl" @bind:event="onchange"
+                           placeholder="(server default)" inputmode="url" disabled="@_saving" />
+                </span>
+            </label>
+
+            <label class="settings-row">
+                <span>
+                    <span class="settings-label">Model</span>
+                    <span class="settings-hint">
+                        Must be a name the endpoint above knows. <code>gpt-4o-mini</code> for OpenAI,
+                        <code>llama3.1</code> or similar for Ollama.
+                    </span>
+                    <input class="login-input settings-input" @bind="_model" @bind:event="onchange"
+                           placeholder="(server default)" disabled="@_saving" />
+                </span>
+            </label>
+
+            <button type="button" class="composer-button" @onclick="SaveModelAsync" disabled="@_saving">
+                Save
+            </button>
+
+            <div class="settings-status">
+                <p>
+                    Your API key is only ever sent to the endpoint this server was configured with. Point ADA
+                    somewhere else and it connects without one — which is what a local model wants anyway.
+                </p>
+                @if (_modelSaved)
+                {
+                    <p class="settings-label">Saved. The next message uses it.</p>
+                }
+            </div>
+        </section>
+
         @if (_error is not null)
         {
             <p class="chat-error" role="alert">@_error</p>
@@ -86,12 +130,20 @@
     private bool _ready;
     private bool _saving;
     private string? _error;
+    private string _baseUrl = string.Empty;
+    private string _model = string.Empty;
+    private bool _modelSaved;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             await Voice.LoadAsync(CancellationToken.None);
+
+            // Blank means "unset", which the server reads as its own default -
+            // so an empty box is a real value here, not a missing one.
+            _baseUrl = await SettingsStore.GetAsync<string>(SettingKeys.BaseUrl, CancellationToken.None) ?? string.Empty;
+            _model = await SettingsStore.GetAsync<string>(SettingKeys.Model, CancellationToken.None) ?? string.Empty;
         }
         catch (AdaUnreachableException)
         {
@@ -109,6 +161,33 @@
 
     private async Task OnEnabledChangedAsync(ChangeEventArgs args) =>
         await SaveAsync(() => Voice.SetEnabledAsync(args.Value is true, CancellationToken.None));
+
+    private async Task SaveModelAsync()
+    {
+        // Cleared first: a rejected save must not leave the previous success
+        // message sitting next to the new error.
+        _modelSaved = false;
+        _error = null;
+
+        var url = _baseUrl.Trim();
+
+        // Checked here for a useful message; the server validates again, because
+        // this is a value it will act on.
+        if (url.Length > 0
+            && (!Uri.TryCreate(url, UriKind.Absolute, out var parsed)
+                || (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps)))
+        {
+            _error = "Enter a full http or https address, or leave it blank for the server default.";
+            return;
+        }
+
+        await SaveAsync(async () =>
+        {
+            await SettingsStore.SetAsync(SettingKeys.BaseUrl, url, CancellationToken.None);
+            await SettingsStore.SetAsync(SettingKeys.Model, _model.Trim(), CancellationToken.None);
+            _modelSaved = true;
+        });
+    }
 
     private async Task SetProviderAsync(string provider) =>
         await SaveAsync(() => Voice.SetProviderAsync(provider, CancellationToken.None));

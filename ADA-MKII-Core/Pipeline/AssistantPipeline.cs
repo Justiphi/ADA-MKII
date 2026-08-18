@@ -42,6 +42,7 @@ public sealed class AssistantPipeline(
         var maxTokens = await ResolveIntAsync(SettingKeys.MaxTokensPerTurn, _defaults.MaxOutputTokens, cancellationToken);
         var historyLimit = await ResolveIntAsync(SettingKeys.HistoryMessageLimit, _defaults.HistoryMessageLimit, cancellationToken);
         var budget = await ResolveLongAsync(SettingKeys.MonthlyTokenBudget, _defaults.MonthlyTokenBudget, cancellationToken);
+        var endpoint = await ResolveEndpointAsync(cancellationToken);
 
         // Spend guard first: refusing before the model call is the only way it
         // actually saves money.
@@ -78,7 +79,7 @@ public sealed class AssistantPipeline(
             cancellationToken);
 
         var history = BuildPrompt(systemPrompt, conversation.Messages, historyLimit, request.Message);
-        var llmRequest = new LlmRequest(model, history, maxTokens, temperature);
+        var llmRequest = new LlmRequest(model, history, maxTokens, temperature) { Endpoint = endpoint };
 
         var buffer = new StringBuilder();
         LlmUsage? reported = null;
@@ -138,6 +139,30 @@ public sealed class AssistantPipeline(
 
     private static string Summarise(string message) =>
         message.Length <= 60 ? message : message[..57] + "...";
+
+    /// <summary>
+    /// The endpoint the user chose, if any. Rejected unless it is an absolute
+    /// http/https URL: the server is what makes this call, so an address that
+    /// arrives from a settings page is a request this server will issue on
+    /// someone else's say-so. A bad value falls back to the server's own
+    /// configuration rather than failing the turn.
+    /// </summary>
+    private async Task<Uri?> ResolveEndpointAsync(CancellationToken ct)
+    {
+        var raw = await settings.GetAsync<string>(SettingKeys.BaseUrl, ct);
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        if (!Uri.TryCreate(raw.Trim(), UriKind.Absolute, out var uri))
+        {
+            return null;
+        }
+
+        return uri.Scheme is "http" or "https" ? uri : null;
+    }
 
     private async Task<string> ResolveAsync(string key, string fallback, CancellationToken ct)
     {

@@ -125,7 +125,7 @@ All interfaces live in `ADA_MKII_Core.Abstractions`.
 
 | Interface | Shape | Implementations |
 |---|---|---|
-| `ILlmProvider` | `IAsyncEnumerable<LlmDelta> StreamAsync(LlmRequest, CancellationToken)` | `OpenAiLlmProvider` (API), `FakeLlmProvider` (tests) |
+| `ILlmProvider` | `IAsyncEnumerable<LlmDelta> StreamAsync(LlmRequest, CancellationToken)` | `OpenAiLlmProvider` and `EchoLlmProvider`, chosen per turn by `RoutingLlmProvider` (API) |
 | `IAssistantTool` | `Name`, `JsonSchema`, `Task<ToolResult> InvokeAsync(JsonElement, CancellationToken)` | `WeatherTool`, `TimeTool` (API) |
 | `IToolRegistry` | Discovery + dispatch of `IAssistantTool` | Core |
 | `IIntentDispatcher` | `Task<CommandResult?> TryHandleAsync(...)` — deterministic commands before the LLM | Core |
@@ -156,6 +156,14 @@ All interfaces live in `ADA_MKII_Core.Abstractions`.
 **Keep the `Setting` table**, repurposed for non-secret user preferences: model name, system prompt/persona, voice id, `Voice:UseElevenLabs`, temperature, monthly spend cap. That is what a database is genuinely good for here, and clients can edit it through the API.
 
 Bind config with the options pattern and `.ValidateDataAnnotations().ValidateOnStart()` so a missing key fails at boot, not at first request.
+
+### Choosing a model backend
+
+`OpenAiLlmProvider` speaks the OpenAI wire format, which Ollama, Groq and OpenRouter also speak — so leaving OpenAI is a URL change, not a code change. `Ada:OpenAI:BaseUrl` sets the server default; a user can override it per account from the settings page (`llm.baseUrl`, with `llm.model`).
+
+**The API key only ever goes to the endpoint the operator configured.** Point ADA elsewhere and it connects unauthenticated, which is what a local model wants anyway. Without that rule, any signed-in user could name a host and be handed this server's OpenAI key. Set `Ada:OpenAI:AllowUserBaseUrl=false` to remove the override entirely when accounts belong to other people.
+
+`RoutingLlmProvider` picks the backend per turn rather than at startup, so a server deployed with no key at all still works the moment someone points it at their own endpoint. With neither configured nor chosen, `EchoLlmProvider` answers — which keeps a fresh deployment testable before any credential exists.
 
 ### Finding the server
 

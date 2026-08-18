@@ -10,6 +10,12 @@ public sealed record SettingDto(string Key, string Value);
 public static class SettingKeys
 {
     public const string Model = "llm.model";
+
+    /// <summary>
+    /// OpenAI-compatible endpoint to talk to, e.g. an Ollama server. Blank uses
+    /// whatever the server was configured with.
+    /// </summary>
+    public const string BaseUrl = "llm.baseUrl";
     public const string SystemPrompt = "llm.systemPrompt";
     public const string Temperature = "llm.temperature";
     public const string MaxTokensPerTurn = "llm.maxTokensPerTurn";
