@@ -935,3 +935,118 @@ body {
     color: var(--ada-muted);
     font-style: italic;
 }
+
+/* ---- Weather ---- */
+
+.dash-weather {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    background-color: var(--ada-surface);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.dash-weather-missing {
+    margin-bottom: 1rem;
+}
+
+.wx-now {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 0 0 auto;
+}
+
+.wx-icon {
+    font-size: 2.25rem;
+    line-height: 1;
+}
+
+.wx-now-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.wx-temp {
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.wx-summary {
+    font-size: 0.9rem;
+    text-transform: lowercase;
+}
+
+/* The forecast scrolls rather than wrapping: five days in a row stays readable
+   on a phone, five days wrapped to two lines does not. */
+.wx-forecast {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    gap: 1.1rem;
+    flex: 1;
+    justify-content: flex-end;
+    overflow-x: auto;
+}
+
+.wx-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    flex: 0 0 auto;
+    min-width: 2.75rem;
+}
+
+.wx-day-name {
+    font-size: 0.75rem;
+    color: var(--ada-muted);
+}
+
+.wx-day-icon {
+    font-size: 1.15rem;
+    line-height: 1;
+}
+
+.wx-day-temps {
+    display: flex;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.wx-min {
+    color: var(--ada-muted);
+}
+
+.wx-rain {
+    font-size: 0.7rem;
+    color: var(--ada-accent);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Narrow: the forecast cannot share a row with the current conditions without
+   collapsing into a scrollbar, so it drops below and spreads across instead. */
+@media (max-width: 40rem) {
+    .dash-weather {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.9rem;
+    }
+
+    .wx-forecast {
+        justify-content: space-between;
+        width: 100%;
+        gap: 0.5rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+    }
+}

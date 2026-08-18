@@ -1,4 +1,6 @@
 using ADA_MKII_API.Llm;
+using ADA_MKII_API.Tools;
+using ADA_MKII_API.Weather;
 using ADA_MKII_Core.Abstractions;
 using ADA_MKII_Core.Pipeline;
 using Microsoft.Extensions.Configuration;
@@ -27,6 +29,19 @@ public static class AdaApiServiceCollectionExtensions
         services.AddSingleton<OpenAiLlmProvider>();
         services.AddSingleton<EchoLlmProvider>();
         services.AddSingleton<ILlmProvider, RoutingLlmProvider>();
+
+        services.Configure<WeatherOptions>(configuration.GetSection(WeatherOptions.SectionName));
+
+        // A typed client with resilience, per the standing rule for outbound
+        // calls. Open-Meteo needs no credential, so there is nothing to withhold
+        // here the way OpenAiLlmProvider must withhold its key.
+        services.AddHttpClient<IWeatherProvider, OpenMeteoWeatherProvider>()
+            .AddStandardResilienceHandler();
+
+        // The weather tool belongs here, unlike the note and calendar tools in
+        // Core: it is backed by an outbound integration, which is what this
+        // project is for.
+        services.AddScoped<IAssistantTool, WeatherTool>();
 
         return services;
     }

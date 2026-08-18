@@ -64,6 +64,17 @@ public static class ApiRoutes
         public static string CancelOccurrence(Guid id) => $"{Base}/{id}/cancel";
     }
 
+    public static class Weather
+    {
+        public const string Base = "/api/weather";
+
+        /// <summary>A named place, or the account's own setting when omitted.</summary>
+        public static string For(string? location) =>
+            string.IsNullOrWhiteSpace(location)
+                ? Base
+                : $"{Base}?location={Uri.EscapeDataString(location)}";
+    }
+
     public static class Settings
     {
         public const string Base = "/api/settings";

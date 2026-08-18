@@ -129,6 +129,34 @@
             </div>
         </section>
 
+        <section class="settings-group">
+            <h2>Weather</h2>
+
+            <label class="settings-row">
+                <span>
+                    <span class="settings-label">Location</span>
+                    <span class="settings-hint">
+                        The place shown on the dashboard, and what ADA means by &quot;here&quot;.
+                        Include the country when the name is ambiguous — <code>Tauranga, NZ</code>
+                        rather than <code>Tauranga</code>, which also exists in Sudan.
+                    </span>
+                    <input class="login-input settings-input" @bind="_weatherLocation" @bind:event="onchange"
+                           placeholder="Tauranga, NZ" disabled="@_saving" />
+                </span>
+            </label>
+
+            <button type="button" class="composer-button" @onclick="SaveWeatherAsync" disabled="@_saving">
+                Save
+            </button>
+
+            <div class="settings-status">
+                @if (_weatherSaved)
+                {
+                    <p class="settings-label">Saved.</p>
+                }
+            </div>
+        </section>
+
         @if (_error is not null)
         {
             <p class="chat-error" role="alert">@_error</p>
@@ -146,9 +174,42 @@
     private string _model = string.Empty;
     private bool _toolsEnabled = true;
     private bool _modelSaved;
+    private string _weatherLocation = string.Empty;
+    private bool _weatherSaved;
 
     private void OnToolsChanged(ChangeEventArgs args) =>
         _toolsEnabled = args.Value is true;
+
+    private async Task SaveWeatherAsync()
+    {
+        _saving = true;
+        _weatherSaved = false;
+        _error = null;
+
+        try
+        {
+            // Blank is meaningful: it hands the choice back to the server's
+            // configured default rather than storing an empty location.
+            await SettingsStore.SetAsync(
+                SettingKeys.WeatherLocation,
+                _weatherLocation.Trim(),
+                CancellationToken.None);
+
+            _weatherSaved = true;
+        }
+        catch (AdaUnreachableException)
+        {
+            _error = "Not saved - the server did not respond.";
+        }
+        catch (AdaApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -165,6 +226,9 @@
             // never written this key.
             var tools = await SettingsStore.GetAsync<string>(SettingKeys.ToolsEnabled, CancellationToken.None);
             _toolsEnabled = !bool.TryParse(tools, out var parsed) || parsed;
+
+            _weatherLocation = await SettingsStore.GetAsync<string>(SettingKeys.WeatherLocation, CancellationToken.None)
+                ?? string.Empty;
         }
         catch (AdaUnreachableException)
         {

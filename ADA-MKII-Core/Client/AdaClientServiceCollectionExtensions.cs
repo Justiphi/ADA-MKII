@@ -40,6 +40,9 @@ public static class AdaClientServiceCollectionExtensions
         services.AddHttpClient<ICalendarStore, HttpCalendarStore>(ConfigureClient)
             .AddStandardResilienceHandler(ConfigureResilience);
 
+        services.AddHttpClient<IWeatherProvider, HttpWeatherProvider>(ConfigureClient)
+            .AddStandardResilienceHandler(ConfigureResilience);
+
         // No resilience handler on the chat client: its total-request timeout
         // would abort a long streaming turn, and retrying a partially consumed
         // stream would double-charge for tokens already paid for.

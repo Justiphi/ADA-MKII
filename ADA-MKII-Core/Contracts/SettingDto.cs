@@ -37,6 +37,16 @@ public static class SettingKeys
     /// table goes stale and varies per model.
     /// </summary>
     public const string MonthlyTokenBudget = "cost.monthlyTokenBudget";
+    /// <summary>
+    /// Free-text place name for weather, e.g. "Tauranga, NZ". Blank uses the
+    /// server's configured default.
+    ///
+    /// Per-account rather than server config because it is a preference, not a
+    /// secret, and because the server is on a VPS that is nowhere near the user -
+    /// the same reason the calendar takes its zone from the browser.
+    /// </summary>
+    public const string WeatherLocation = "weather.location";
+
     public const string UseElevenLabs = "voice.useElevenLabs";
     public const string VoiceId = "voice.voiceId";
 

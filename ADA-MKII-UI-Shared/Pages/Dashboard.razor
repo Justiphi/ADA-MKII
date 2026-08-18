@@ -6,6 +6,7 @@
 @inject ICalendarStore Calendar
 @inject INoteStore Notes
 @inject IMemoryStore Memories
+@inject IWeatherProvider Weather
 
 <PageTitle>ADA</PageTitle>
 
@@ -46,6 +47,48 @@
             Save note
         </button>
     </form>
+
+    @if (_weather is { } weather)
+    {
+        <section class="dash-weather">
+            <div class="wx-now">
+                <span class="wx-icon">@WeatherCodes.Icon(weather.Current.WeatherCode)</span>
+                <div class="wx-now-body">
+                    <span class="wx-temp">@weather.Current.TemperatureC.ToString("0", null)°</span>
+                    <span class="wx-summary">@weather.Current.Summary</span>
+                    <span class="dash-item-meta">
+                        @weather.Location · feels @weather.Current.FeelsLikeC.ToString("0", null)°
+                        · wind @weather.Current.WindSpeedKph.ToString("0", null) km/h
+                    </span>
+                </div>
+            </div>
+
+            <ol class="wx-forecast">
+                @foreach (var day in weather.Forecast)
+                {
+                    <li class="wx-day">
+                        <span class="wx-day-name">@DayName(day.Date)</span>
+                        <span class="wx-day-icon" title="@day.Summary">@WeatherCodes.Icon(day.WeatherCode)</span>
+                        <span class="wx-day-temps">
+                            <span class="wx-max">@day.MaxC.ToString("0", null)°</span>
+                            <span class="wx-min">@day.MinC.ToString("0", null)°</span>
+                        </span>
+                        @if (day.PrecipitationChancePercent >= RainWorthMentioning)
+                        {
+                            <span class="wx-rain">@day.PrecipitationChancePercent%</span>
+                        }
+                    </li>
+                }
+            </ol>
+        </section>
+    }
+    else if (_weatherUnavailable)
+    {
+        <p class="dash-empty dash-weather-missing">
+            Weather is unavailable right now. Check the location on the
+            <a class="dash-more" href="settings">settings page</a>.
+        </p>
+    }
 
     <div class="dash-grid">
 
@@ -171,6 +214,11 @@
     private IReadOnlyList<EventOccurrenceDto> _upcoming = [];
     private IReadOnlyList<NoteDto> _notes = [];
     private IReadOnlyList<MemoryDto> _memories = [];
+    private WeatherDto? _weather;
+    private bool _weatherUnavailable;
+
+    /// <summary>Below this, a rain chance is noise rather than a forecast.</summary>
+    private const int RainWorthMentioning = 20;
 
     private string _capture = string.Empty;
     private bool _saving;
@@ -190,7 +238,35 @@
 
         _notes = await Notes.ListAsync(PreviewCount, CancellationToken.None);
         _memories = await Memories.ListRecentAsync(PreviewCount, CancellationToken.None);
+
+        await LoadWeatherAsync();
     }
+
+    /// <summary>
+    /// Loaded last, and with its own error handling, so a weather outage costs
+    /// the weather card and nothing else. A third-party service is the least
+    /// reliable thing on this page and the least important - letting it take the
+    /// calendar and notes down with it would be the wrong trade.
+    /// </summary>
+    private async Task LoadWeatherAsync()
+    {
+        try
+        {
+            _weather = await Weather.GetForecastAsync(null, CancellationToken.None);
+            _weatherUnavailable = _weather is null;
+        }
+        catch (ADA_MKII_Core.Client.AdaApiException)
+        {
+            _weather = null;
+            _weatherUnavailable = true;
+        }
+    }
+
+    /// <summary>"Today" for the first day, then short weekday names.</summary>
+    private string DayName(DateOnly date) =>
+        date == DateOnly.FromDateTime(Zone.ToLocal(Clock.GetUtcNow()).Date)
+            ? "Today"
+            : date.ToString("ddd", null);
 
     private async Task CaptureAsync()
     {
