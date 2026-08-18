@@ -1,0 +1,243 @@
+@page "/"
+@using ADA_MKII_Core.Abstractions
+@using ADA_MKII_Core.Contracts
+@using ADA_MKII_UI_Shared.Components
+@inherits AuthenticatedPage
+@inject ICalendarStore Calendar
+@inject INoteStore Notes
+@inject IMemoryStore Memories
+
+<PageTitle>ADA</PageTitle>
+
+@if (!Ready)
+{
+    <p class="chat-empty">Connecting to @Server.BaseAddress.Authority…</p>
+    return;
+}
+
+@if (Unreachable)
+{
+    <div class="chat-offline" role="alert">
+        <h1>Cannot reach ADA</h1>
+        <p>No response from <strong>@Server.BaseAddress</strong>.</p>
+        <div class="chat-offline-actions">
+            <button type="button" class="composer-button" @onclick="RetryAsync">Try again</button>
+        </div>
+    </div>
+    return;
+}
+
+<div class="dash">
+
+    <div class="dash-greeting">
+        <h1>@Greeting, @Session.Account!.DisplayName.</h1>
+        <p class="settings-hint">@TodayLabel</p>
+    </div>
+
+    @if (Error is not null)
+    {
+        <p class="dash-error" role="alert">@Error</p>
+    }
+
+    <form class="dash-capture" @onsubmit="CaptureAsync" @onsubmit:preventDefault>
+        <input class="dash-capture-input" @bind="_capture" @bind:event="oninput"
+               placeholder="Jot something down…" aria-label="Quick note" disabled="@_saving" />
+        <button type="submit" class="composer-button" disabled="@(_saving || _capture.Trim().Length == 0)">
+            Save note
+        </button>
+    </form>
+
+    <div class="dash-grid">
+
+        <section class="dash-card">
+            <header class="dash-card-head">
+                <h2>Today</h2>
+                <a class="dash-more" href="calendar">Calendar</a>
+            </header>
+
+            @if (_today.Count == 0)
+            {
+                <p class="dash-empty">Nothing scheduled.</p>
+            }
+            else
+            {
+                <ul class="dash-list">
+                    @foreach (var occurrence in _today)
+                    {
+                        <li class="dash-item">
+                            <span class="dash-time">@TimeLabel(occurrence)</span>
+                            <span class="dash-item-body">
+                                <span class="dash-item-title">@occurrence.Title</span>
+                                @if (!string.IsNullOrWhiteSpace(occurrence.Location))
+                                {
+                                    <span class="dash-item-meta">@occurrence.Location</span>
+                                }
+                            </span>
+                            @if (occurrence.IsRecurring)
+                            {
+                                <span class="dash-badge" title="Part of a repeating series">repeats</span>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+
+        <section class="dash-card">
+            <header class="dash-card-head">
+                <h2>Next seven days</h2>
+            </header>
+
+            @if (_upcoming.Count == 0)
+            {
+                <p class="dash-empty">Clear.</p>
+            }
+            else
+            {
+                <ul class="dash-list">
+                    @foreach (var occurrence in _upcoming)
+                    {
+                        <li class="dash-item">
+                            <span class="dash-time">@DayLabel(occurrence)</span>
+                            <span class="dash-item-body">
+                                <span class="dash-item-title">@occurrence.Title</span>
+                                <span class="dash-item-meta">@TimeLabel(occurrence)</span>
+                            </span>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+
+        <section class="dash-card">
+            <header class="dash-card-head">
+                <h2>Recent notes</h2>
+                <a class="dash-more" href="notes">All notes</a>
+            </header>
+
+            @if (_notes.Count == 0)
+            {
+                <p class="dash-empty">No notes yet.</p>
+            }
+            else
+            {
+                <ul class="dash-list">
+                    @foreach (var note in _notes)
+                    {
+                        <li class="dash-item">
+                            <span class="dash-item-body">
+                                <span class="dash-item-title">@(string.IsNullOrWhiteSpace(note.Title) ? Excerpt(note.Content) : note.Title)</span>
+                                <span class="dash-item-meta">@DateLabel(note.UpdatedUtc)</span>
+                            </span>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+
+        <section class="dash-card">
+            <header class="dash-card-head">
+                <h2>ADA remembers</h2>
+                <a class="dash-more" href="memories">All memories</a>
+            </header>
+
+            @if (_memories.Count == 0)
+            {
+                <p class="dash-empty">Nothing yet. ADA adds these itself as it learns about you.</p>
+            }
+            else
+            {
+                <ul class="dash-list">
+                    @foreach (var memory in _memories)
+                    {
+                        <li class="dash-item">
+                            <span class="dash-item-body">
+                                <span class="dash-item-title">@memory.Content</span>
+                                <span class="dash-item-meta">@(memory.Tag ?? "general")</span>
+                            </span>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+
+    </div>
+</div>
+
+@code {
+    private const int PreviewCount = 5;
+
+    private IReadOnlyList<EventOccurrenceDto> _today = [];
+    private IReadOnlyList<EventOccurrenceDto> _upcoming = [];
+    private IReadOnlyList<NoteDto> _notes = [];
+    private IReadOnlyList<MemoryDto> _memories = [];
+
+    private string _capture = string.Empty;
+    private bool _saving;
+
+    protected override async Task LoadAsync()
+    {
+        var dayStart = Zone.TodayStart(Clock);
+        var dayEnd = dayStart.AddDays(1);
+        var weekEnd = dayStart.AddDays(8);
+
+        // One window covering both panels, split locally - two round trips for
+        // adjacent ranges would be wasteful.
+        var occurrences = await Calendar.ListOccurrencesAsync(dayStart, weekEnd, CancellationToken.None);
+
+        _today = [.. occurrences.Where(o => o.StartsUtc < dayEnd)];
+        _upcoming = [.. occurrences.Where(o => o.StartsUtc >= dayEnd).Take(PreviewCount)];
+
+        _notes = await Notes.ListAsync(PreviewCount, CancellationToken.None);
+        _memories = await Memories.ListRecentAsync(PreviewCount, CancellationToken.None);
+    }
+
+    private async Task CaptureAsync()
+    {
+        var content = _capture.Trim();
+        if (content.Length == 0 || _saving)
+        {
+            return;
+        }
+
+        _saving = true;
+
+        try
+        {
+            // Title left null: the store derives one from the first line, which is
+            // the whole point of a capture box you can type one sentence into.
+            await Notes.CreateAsync(new CreateNoteRequest(null, content), CancellationToken.None);
+            _capture = string.Empty;
+            await ReloadAsync();
+        }
+        catch (ADA_MKII_Core.Client.AdaUnreachableException)
+        {
+            Error = "The note was not saved - the server did not respond.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private string Greeting => Zone.ToLocal(Clock.GetUtcNow()).Hour switch
+    {
+        < 12 => "Good morning",
+        < 18 => "Good afternoon",
+        _ => "Good evening",
+    };
+
+    private string TodayLabel => Zone.ToLocal(Clock.GetUtcNow()).ToString("dddd d MMMM", null);
+
+    private string TimeLabel(EventOccurrenceDto occurrence) =>
+        occurrence.IsAllDay ? "all day" : Zone.ToLocal(occurrence.StartsUtc).ToString("HH:mm", null);
+
+    private string DayLabel(EventOccurrenceDto occurrence) =>
+        Zone.ToLocal(occurrence.StartsUtc).ToString("ddd d", null);
+
+    private string DateLabel(DateTimeOffset instant) =>
+        Zone.ToLocal(instant).ToString("d MMM", null);
+
+    private static string Excerpt(string content) =>
+        content.Length <= 60 ? content : string.Concat(content.AsSpan(0, 60), "…");
+}

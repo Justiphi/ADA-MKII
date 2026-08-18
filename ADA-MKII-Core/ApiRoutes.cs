@@ -33,6 +33,37 @@ public static class ApiRoutes
         public static string Messages(Guid id) => $"{Base}/{id}/messages";
     }
 
+    public static class Notes
+    {
+        public const string Base = "/api/notes";
+
+        public static string ById(Guid id) => $"{Base}/{id}";
+
+        public static string Search(string query) => $"{Base}/search?q={Uri.EscapeDataString(query)}";
+    }
+
+    public static class Memories
+    {
+        public const string Base = "/api/memories";
+
+        public static string ById(Guid id) => $"{Base}/{id}";
+
+        public static string Search(string query) => $"{Base}/search?q={Uri.EscapeDataString(query)}";
+    }
+
+    public static class Calendar
+    {
+        public const string Base = "/api/calendar";
+
+        public static string ById(Guid id) => $"{Base}/{id}";
+
+        /// <summary>Expanded occurrences in a window - what a calendar view asks for.</summary>
+        public static string Occurrences(DateTimeOffset fromUtc, DateTimeOffset toUtc) =>
+            $"{Base}/occurrences?from={Uri.EscapeDataString(fromUtc.ToString("o"))}&to={Uri.EscapeDataString(toUtc.ToString("o"))}";
+
+        public static string CancelOccurrence(Guid id) => $"{Base}/{id}/cancel";
+    }
+
     public static class Settings
     {
         public const string Base = "/api/settings";

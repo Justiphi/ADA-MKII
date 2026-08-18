@@ -1,0 +1,280 @@
+@page "/calendar"
+@using ADA_MKII_Core.Abstractions
+@using ADA_MKII_Core.Contracts
+@using ADA_MKII_UI_Shared.Components
+@inherits AuthenticatedPage
+@inject ICalendarStore Store
+
+<PageTitle>Calendar — ADA</PageTitle>
+
+@if (!Ready)
+{
+    <p class="chat-empty">Loading…</p>
+    return;
+}
+
+@if (Unreachable)
+{
+    <div class="chat-offline" role="alert">
+        <h1>Cannot reach ADA</h1>
+        <p>No response from <strong>@Server.BaseAddress</strong>.</p>
+        <div class="chat-offline-actions">
+            <button type="button" class="composer-button" @onclick="RetryAsync">Try again</button>
+        </div>
+    </div>
+    return;
+}
+
+<div class="records">
+
+    <header class="records-head">
+        <h1>Calendar</h1>
+        <div class="cal-nav">
+            <button type="button" class="records-link" @onclick="() => ShiftAsync(-1)" disabled="@_saving">‹ Prev</button>
+            <span class="cal-range">@RangeLabel</span>
+            <button type="button" class="records-link" @onclick="() => ShiftAsync(1)" disabled="@_saving">Next ›</button>
+        </div>
+    </header>
+
+    <p class="settings-hint">Times shown in @Zone.Zone.Id.</p>
+
+    @if (Error is not null)
+    {
+        <p class="dash-error" role="alert">@Error</p>
+    }
+
+    <form class="records-form" @onsubmit="SaveAsync" @onsubmit:preventDefault>
+        <input class="records-input" @bind="_title" @bind:event="oninput"
+               placeholder="Event title" aria-label="Event title" disabled="@_saving" />
+
+        <div class="cal-fields">
+            <label class="cal-field">
+                <span class="settings-label">Starts</span>
+                <input type="datetime-local" class="records-input" @bind="_start" disabled="@_saving" />
+            </label>
+
+            <label class="cal-field">
+                <span class="settings-label">Minutes</span>
+                <input type="number" class="records-input" min="0" max="1440" @bind="_minutes" disabled="@_saving" />
+            </label>
+
+            <label class="cal-field">
+                <span class="settings-label">Repeats</span>
+                <select class="records-input" @bind="_frequency" disabled="@_saving">
+                    <option value="@RecurrenceFrequency.None">Does not repeat</option>
+                    <option value="@RecurrenceFrequency.Daily">Daily</option>
+                    <option value="@RecurrenceFrequency.Weekly">Weekly</option>
+                    <option value="@RecurrenceFrequency.Monthly">Monthly</option>
+                    <option value="@RecurrenceFrequency.Yearly">Yearly</option>
+                </select>
+            </label>
+
+            @if (_frequency != RecurrenceFrequency.None)
+            {
+                <label class="cal-field">
+                    <span class="settings-label">Every</span>
+                    <input type="number" class="records-input" min="1" max="52" @bind="_interval" disabled="@_saving" />
+                </label>
+
+                <label class="cal-field">
+                    <span class="settings-label">Times (blank = forever)</span>
+                    <input type="number" class="records-input" min="1" max="500" @bind="_count" disabled="@_saving" />
+                </label>
+            }
+        </div>
+
+        <input class="records-input" @bind="_location" @bind:event="oninput"
+               placeholder="Location (optional)" aria-label="Location" disabled="@_saving" />
+
+        <div class="records-form-actions">
+            <label class="cal-inline">
+                <input type="checkbox" @bind="_reminder" disabled="@_saving" />
+                <span>Remind me @_reminderMinutes minutes before</span>
+            </label>
+            <button type="submit" class="composer-button" disabled="@(_saving || _title.Trim().Length == 0)">
+                Add event
+            </button>
+        </div>
+    </form>
+
+    @if (_occurrences.Count == 0)
+    {
+        <p class="dash-empty">Nothing in this range.</p>
+    }
+    else
+    {
+        <ul class="records-list">
+            @foreach (var day in _occurrences.GroupBy(o => Zone.ToLocal(o.StartsUtc).Date))
+            {
+                <li class="cal-day">
+                    <h2 class="cal-day-head">@day.Key.ToString("dddd d MMMM", null)</h2>
+                    <ul class="cal-day-list">
+                        @foreach (var occurrence in day)
+                        {
+                            <li class="records-item">
+                                <div class="records-item-body">
+                                    <span class="records-item-title">
+                                        <span class="dash-time">@TimeLabel(occurrence)</span>
+                                        @occurrence.Title
+                                        @if (occurrence.IsRecurring)
+                                        {
+                                            <span class="dash-badge">repeats</span>
+                                        }
+                                    </span>
+                                    @if (!string.IsNullOrWhiteSpace(occurrence.Location))
+                                    {
+                                        <span class="dash-item-meta">@occurrence.Location</span>
+                                    }
+                                </div>
+                                <div class="records-item-actions">
+                                    @if (occurrence.IsRecurring)
+                                    {
+                                        <button type="button" class="records-link"
+                                                @onclick="() => SkipAsync(occurrence)" disabled="@_saving">
+                                            Skip this one
+                                        </button>
+                                    }
+                                    <button type="button" class="records-link records-danger"
+                                            @onclick="() => DeleteAsync(occurrence)" disabled="@_saving">
+                                        @(occurrence.IsRecurring ? "Delete series" : "Delete")
+                                    </button>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private const int WindowDays = 28;
+    private const int DefaultDurationMinutes = 60;
+
+    private IReadOnlyList<EventOccurrenceDto> _occurrences = [];
+    private int _offsetWindows;
+
+    private string _title = string.Empty;
+    private string _location = string.Empty;
+    private DateTime _start = DateTime.Now;
+    private int _minutes = DefaultDurationMinutes;
+    private RecurrenceFrequency _frequency = RecurrenceFrequency.None;
+    private int _interval = 1;
+    private int? _count;
+    private bool _reminder = true;
+    private readonly int _reminderMinutes = 15;
+    private bool _saving;
+
+    private DateTimeOffset WindowStart => Zone.TodayStart(Clock).AddDays(WindowDays * _offsetWindows);
+
+    private DateTimeOffset WindowEnd => WindowStart.AddDays(WindowDays);
+
+    private string RangeLabel =>
+        $"{Zone.ToLocal(WindowStart):d MMM} – {Zone.ToLocal(WindowEnd.AddDays(-1)):d MMM yyyy}";
+
+    protected override async Task LoadAsync() =>
+        _occurrences = await Store.ListOccurrencesAsync(WindowStart, WindowEnd, CancellationToken.None);
+
+    private async Task ShiftAsync(int windows)
+    {
+        _offsetWindows += windows;
+        await ReloadAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        var title = _title.Trim();
+        if (title.Length == 0 || _saving)
+        {
+            return;
+        }
+
+        _saving = true;
+
+        try
+        {
+            // The picker gives a wall-clock time with no zone. Attach the viewer's
+            // zone offset for that date so "09:00" means 09:00 where they are.
+            var wall = DateTime.SpecifyKind(_start, DateTimeKind.Unspecified);
+            var starts = new DateTimeOffset(wall, Zone.Zone.GetUtcOffset(wall));
+
+            var recurrence = _frequency == RecurrenceFrequency.None
+                ? null
+                : new RecurrenceDto(_frequency, Math.Max(1, _interval), null, _count);
+
+            await Store.CreateAsync(
+                new CreateEventRequest(
+                    title,
+                    starts,
+                    starts.AddMinutes(Math.Clamp(_minutes, 0, 1440)),
+                    string.IsNullOrWhiteSpace(_location) ? null : _location.Trim(),
+                    null,
+                    false,
+                    _reminder,
+                    _reminderMinutes,
+                    recurrence,
+                    // Sending the zone is what keeps a repeating event at the same
+                    // wall-clock time once daylight saving shifts.
+                    Zone.Id),
+                CancellationToken.None);
+
+            _title = string.Empty;
+            _location = string.Empty;
+            _frequency = RecurrenceFrequency.None;
+            _interval = 1;
+            _count = null;
+
+            await ReloadAsync();
+        }
+        catch (ADA_MKII_Core.Client.AdaUnreachableException)
+        {
+            Error = "Not saved - the server did not respond.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task SkipAsync(EventOccurrenceDto occurrence)
+    {
+        _saving = true;
+
+        try
+        {
+            await Store.CancelOccurrenceAsync(occurrence.EventId, occurrence.StartsUtc, CancellationToken.None);
+            await ReloadAsync();
+        }
+        catch (ADA_MKII_Core.Client.AdaUnreachableException)
+        {
+            Error = "Not changed - the server did not respond.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task DeleteAsync(EventOccurrenceDto occurrence)
+    {
+        _saving = true;
+
+        try
+        {
+            await Store.DeleteAsync(occurrence.EventId, CancellationToken.None);
+            await ReloadAsync();
+        }
+        catch (ADA_MKII_Core.Client.AdaUnreachableException)
+        {
+            Error = "Not deleted - the server did not respond.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private string TimeLabel(EventOccurrenceDto occurrence) =>
+        occurrence.IsAllDay ? "all day" : Zone.ToLocal(occurrence.StartsUtc).ToString("HH:mm", null);
+}

@@ -94,6 +94,9 @@ app.MapAuthEndpoints();
 app.MapConversationEndpoints();
 app.MapSettingsEndpoints();
 app.MapChatEndpoints();
+app.MapNoteEndpoints();
+app.MapMemoryEndpoints();
+app.MapCalendarEndpoints();
 
 // Migrations are NOT applied here: run them as a deliberate deploy step.
 // Accounts are NOT seeded here either - ADA-MKII-DataManager is the only way to

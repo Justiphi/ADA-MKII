@@ -1,0 +1,180 @@
+@page "/notes"
+@using ADA_MKII_Core.Abstractions
+@using ADA_MKII_Core.Contracts
+@using ADA_MKII_UI_Shared.Components
+@inherits AuthenticatedPage
+@inject INoteStore Store
+
+<PageTitle>Notes — ADA</PageTitle>
+
+@if (!Ready)
+{
+    <p class="chat-empty">Loading…</p>
+    return;
+}
+
+@if (Unreachable)
+{
+    <div class="chat-offline" role="alert">
+        <h1>Cannot reach ADA</h1>
+        <p>No response from <strong>@Server.BaseAddress</strong>.</p>
+        <div class="chat-offline-actions">
+            <button type="button" class="composer-button" @onclick="RetryAsync">Try again</button>
+        </div>
+    </div>
+    return;
+}
+
+<div class="records">
+
+    <header class="records-head">
+        <h1>Notes</h1>
+        <input class="records-search" @bind="_query" @bind:event="oninput" @bind:after="SearchAsync"
+               placeholder="Search notes…" aria-label="Search notes" />
+    </header>
+
+    @if (Error is not null)
+    {
+        <p class="dash-error" role="alert">@Error</p>
+    }
+
+    <form class="records-form" @onsubmit="SaveAsync" @onsubmit:preventDefault>
+        <input class="records-input" @bind="_title" @bind:event="oninput"
+               placeholder="Title (optional)" aria-label="Note title" disabled="@_saving" />
+        <textarea class="records-textarea" @bind="_content" @bind:event="oninput" rows="3"
+                  placeholder="Write a note…" aria-label="Note content" disabled="@_saving"></textarea>
+        <div class="records-form-actions">
+            @if (_editing is not null)
+            {
+                <button type="button" class="settings-back" @onclick="CancelEdit" disabled="@_saving">Cancel</button>
+            }
+            <button type="submit" class="composer-button" disabled="@(_saving || _content.Trim().Length == 0)">
+                @(_editing is null ? "Add note" : "Save changes")
+            </button>
+        </div>
+    </form>
+
+    @if (_notes.Count == 0)
+    {
+        <p class="dash-empty">@(string.IsNullOrWhiteSpace(_query) ? "No notes yet." : "Nothing matched that.")</p>
+    }
+    else
+    {
+        <ul class="records-list">
+            @foreach (var note in _notes)
+            {
+                <li class="records-item @(_editing?.Id == note.Id ? "is-editing" : null)">
+                    <div class="records-item-body">
+                        <span class="records-item-title">@note.Title</span>
+                        <span class="records-item-content">@note.Content</span>
+                        <span class="dash-item-meta">@DateLabel(note.UpdatedUtc)</span>
+                    </div>
+                    <div class="records-item-actions">
+                        <button type="button" class="records-link" @onclick="() => BeginEdit(note)" disabled="@_saving">
+                            Edit
+                        </button>
+                        <button type="button" class="records-link records-danger"
+                                @onclick="() => DeleteAsync(note)" disabled="@_saving">
+                            Delete
+                        </button>
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private const int PageSize = 100;
+
+    private IReadOnlyList<NoteDto> _notes = [];
+    private NoteDto? _editing;
+    private string _title = string.Empty;
+    private string _content = string.Empty;
+    private string _query = string.Empty;
+    private bool _saving;
+
+    protected override async Task LoadAsync() =>
+        _notes = string.IsNullOrWhiteSpace(_query)
+            ? await Store.ListAsync(PageSize, CancellationToken.None)
+            : await Store.SearchAsync(_query, PageSize, CancellationToken.None);
+
+    private Task SearchAsync() => ReloadAsync();
+
+    private void BeginEdit(NoteDto note)
+    {
+        _editing = note;
+        _title = note.Title;
+        _content = note.Content;
+    }
+
+    private void CancelEdit()
+    {
+        _editing = null;
+        _title = string.Empty;
+        _content = string.Empty;
+    }
+
+    private async Task SaveAsync()
+    {
+        var content = _content.Trim();
+        if (content.Length == 0 || _saving)
+        {
+            return;
+        }
+
+        _saving = true;
+        var title = string.IsNullOrWhiteSpace(_title) ? null : _title.Trim();
+
+        try
+        {
+            if (_editing is null)
+            {
+                await Store.CreateAsync(new CreateNoteRequest(title, content), CancellationToken.None);
+            }
+            else
+            {
+                await Store.UpdateAsync(_editing.Id, new UpdateNoteRequest(title, content), CancellationToken.None);
+            }
+
+            CancelEdit();
+            await ReloadAsync();
+        }
+        catch (ADA_MKII_Core.Client.AdaUnreachableException)
+        {
+            Error = "Not saved - the server did not respond.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task DeleteAsync(NoteDto note)
+    {
+        _saving = true;
+
+        try
+        {
+            await Store.DeleteAsync(note.Id, CancellationToken.None);
+
+            if (_editing?.Id == note.Id)
+            {
+                CancelEdit();
+            }
+
+            await ReloadAsync();
+        }
+        catch (ADA_MKII_Core.Client.AdaUnreachableException)
+        {
+            Error = "Not deleted - the server did not respond.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private string DateLabel(DateTimeOffset instant) =>
+        Zone.ToLocal(instant).ToString("d MMM yyyy, HH:mm", null);
+}

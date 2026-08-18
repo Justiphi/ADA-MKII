@@ -530,3 +530,399 @@ body {
     border-radius: 0.25rem;
     padding: 0.05rem 0.3rem;
 }
+
+/* ---- Primary navigation ---- */
+
+.ada-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-left: 1.5rem;
+    overflow-x: auto;
+}
+
+.ada-nav-link {
+    color: var(--ada-muted);
+    text-decoration: none;
+    font-size: 0.875rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.ada-nav-link:hover {
+    color: var(--ada-text);
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Blazor adds this to whichever NavLink matches the current route. */
+.ada-nav-link.active {
+    color: var(--ada-text);
+    background-color: rgba(79, 140, 255, 0.15);
+}
+
+/* ---- Dashboard ---- */
+
+.dash {
+    width: 100%;
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 3rem;
+    overflow-y: auto;
+}
+
+.dash-greeting h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.dash-greeting .settings-hint {
+    margin-top: 0.15rem;
+}
+
+.dash-error {
+    margin: 1rem 0 0;
+    padding: 0.6rem 0.85rem;
+    border-radius: 0.5rem;
+    background-color: rgba(255, 96, 96, 0.12);
+    border: 1px solid rgba(255, 96, 96, 0.35);
+    font-size: 0.875rem;
+}
+
+.dash-capture {
+    display: flex;
+    gap: 0.5rem;
+    margin: 1.25rem 0 1.75rem;
+}
+
+.dash-capture-input {
+    flex: 1;
+    min-width: 0;
+    background-color: var(--ada-surface);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.5rem;
+    color: var(--ada-text);
+    padding: 0.6rem 0.8rem;
+    font: inherit;
+}
+
+.dash-capture-input:focus {
+    outline: 2px solid var(--ada-accent);
+    outline-offset: -1px;
+}
+
+/* auto-fit rather than a fixed count, so the same markup works on a phone. */
+.dash-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+    gap: 1rem;
+}
+
+.dash-card {
+    background-color: var(--ada-surface);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 0.75rem;
+    padding: 1rem;
+}
+
+.dash-card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 0.6rem;
+}
+
+.dash-card-head h2 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.dash-more {
+    color: var(--ada-muted);
+    font-size: 0.8rem;
+    text-decoration: none;
+}
+
+.dash-more:hover {
+    color: var(--ada-accent);
+}
+
+.dash-empty {
+    color: var(--ada-muted);
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+.dash-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.dash-item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+}
+
+.dash-time {
+    color: var(--ada-accent);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    flex: 0 0 auto;
+    min-width: 3rem;
+}
+
+.dash-item-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.dash-item-title {
+    font-size: 0.9rem;
+    overflow-wrap: anywhere;
+}
+
+.dash-item-meta {
+    color: var(--ada-muted);
+    font-size: 0.775rem;
+}
+
+.dash-badge {
+    margin-left: auto;
+    flex: 0 0 auto;
+    align-self: center;
+    color: var(--ada-muted);
+    font-size: 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+    padding: 0.05rem 0.45rem;
+}
+
+/* ---- Notes, memories, calendar ---- */
+
+.records {
+    width: 100%;
+    max-width: 48rem;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 3rem;
+    overflow-y: auto;
+}
+
+.records-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.records-head h1 {
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.records-search,
+.records-input,
+.records-textarea {
+    background-color: var(--ada-surface);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.5rem;
+    color: var(--ada-text);
+    padding: 0.5rem 0.7rem;
+    font: inherit;
+}
+
+.records-search:focus,
+.records-input:focus,
+.records-textarea:focus {
+    outline: 2px solid var(--ada-accent);
+    outline-offset: -1px;
+}
+
+.records-textarea {
+    resize: vertical;
+}
+
+.records-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 1.25rem 0 1.5rem;
+}
+
+.records-form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.records-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.records-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    background-color: var(--ada-surface);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 0.6rem;
+    padding: 0.75rem 0.9rem;
+}
+
+.records-item.is-editing {
+    border-color: var(--ada-accent);
+}
+
+.records-item-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.records-item-title {
+    font-size: 0.925rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.records-item-content {
+    font-size: 0.875rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.records-item-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex: 0 0 auto;
+}
+
+.records-link {
+    background: none;
+    border: none;
+    color: var(--ada-muted);
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0.1rem 0.2rem;
+}
+
+.records-link:hover:not(:disabled) {
+    color: var(--ada-text);
+}
+
+.records-danger:hover:not(:disabled) {
+    color: #ff7676;
+}
+
+.records-link:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.cal-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.cal-range {
+    color: var(--ada-muted);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.cal-fields {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.cal-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 8rem;
+    flex: 1;
+}
+
+.cal-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-right: auto;
+    color: var(--ada-muted);
+    font-size: 0.825rem;
+}
+
+.cal-day {
+    margin-top: 0.75rem;
+}
+
+.cal-day-head {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ada-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 0.4rem;
+}
+
+.cal-day-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Narrow screens: the header cannot fit a wordmark, five nav links and an
+   account block on one row. Let it become two rows and give up the fixed
+   height, rather than leaving the nav to scroll under the account name. */
+@media (max-width: 48rem) {
+    .ada-header {
+        height: auto;
+        flex-wrap: wrap;
+        row-gap: 0.4rem;
+        padding: 0.6rem 1rem;
+    }
+
+    .ada-nav {
+        order: 3;
+        width: 100%;
+        margin-left: 0;
+        overflow-x: visible;
+        flex-wrap: wrap;
+    }
+
+    .ada-account {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .ada-account-name {
+        white-space: nowrap;
+    }
+}

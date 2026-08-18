@@ -30,6 +30,9 @@ public static class AdaDataServiceCollectionExtensions
         services.AddScoped<IDeviceTokenStore, SqlDeviceTokenStore>();
         services.AddScoped<IUsageStore, SqlUsageStore>();
         services.AddScoped<IAccountStore, SqlAccountStore>();
+        services.AddScoped<INoteStore, SqlNoteStore>();
+        services.AddScoped<IMemoryStore, SqlMemoryStore>();
+        services.AddScoped<ICalendarStore, SqlCalendarStore>();
 
         return services;
     }

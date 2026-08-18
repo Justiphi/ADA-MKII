@@ -12,6 +12,14 @@
 
         @if (Session.IsSignedIn)
         {
+            <nav class="ada-nav">
+                <NavLink class="ada-nav-link" href="" Match="NavLinkMatch.All">Dashboard</NavLink>
+                <NavLink class="ada-nav-link" href="chat">Chat</NavLink>
+                <NavLink class="ada-nav-link" href="calendar">Calendar</NavLink>
+                <NavLink class="ada-nav-link" href="notes">Notes</NavLink>
+                <NavLink class="ada-nav-link" href="memories">Memories</NavLink>
+            </nav>
+
             <div class="ada-account">
                 <span class="ada-account-name">@Session.Account!.DisplayName</span>
                 <NavLink class="ada-signout" href="settings">Settings</NavLink>

@@ -20,6 +20,14 @@ public sealed class AdaDbContext(DbContextOptions<AdaDbContext> options) : DbCon
 
     public DbSet<DeviceTokenEntity> DeviceTokens => Set<DeviceTokenEntity>();
 
+    public DbSet<NoteEntity> Notes => Set<NoteEntity>();
+
+    public DbSet<MemoryEntity> Memories => Set<MemoryEntity>();
+
+    public DbSet<CalendarEventEntity> CalendarEvents => Set<CalendarEventEntity>();
+
+    public DbSet<CalendarExceptionEntity> CalendarExceptions => Set<CalendarExceptionEntity>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
@@ -71,6 +79,69 @@ public sealed class AdaDbContext(DbContextOptions<AdaDbContext> options) : DbCon
                 .WithMany(a => a.Settings)
                 .HasForeignKey(e => e.AccountId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<NoteEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Content).IsRequired();
+
+            // Every note query filters by owner first, then orders by recency.
+            entity.HasIndex(e => new { e.AccountId, e.UpdatedUtc }).IsDescending(false, true);
+
+            entity.HasOne(e => e.Account)
+                .WithMany()
+                .HasForeignKey(e => e.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MemoryEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Content).HasMaxLength(2000).IsRequired();
+            entity.Property(e => e.Tag).HasMaxLength(64);
+            entity.HasIndex(e => new { e.AccountId, e.CreatedUtc }).IsDescending(false, true);
+
+            entity.HasOne(e => e.Account)
+                .WithMany()
+                .HasForeignKey(e => e.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CalendarEventEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Location).HasMaxLength(200);
+            entity.Property(e => e.Notes).HasMaxLength(4000);
+            entity.Property(e => e.Frequency).HasConversion<int>();
+
+            // Long enough for any IANA or Windows zone id; the longest in the
+            // Windows list is comfortably under 100 characters.
+            entity.Property(e => e.TimeZoneId).HasMaxLength(100);
+
+            // Range queries load every series that could contribute an occurrence,
+            // so the useful index is owner plus series start.
+            entity.HasIndex(e => new { e.AccountId, e.StartsUtc });
+
+            entity.HasOne(e => e.Account)
+                .WithMany()
+                .HasForeignKey(e => e.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.Exceptions)
+                .WithOne(x => x.Event)
+                .HasForeignKey(x => x.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CalendarExceptionEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            // One cancellation per occurrence; cancelling twice is not a thing.
+            entity.HasIndex(e => new { e.EventId, e.OccurrenceStartUtc }).IsUnique();
         });
 
         modelBuilder.Entity<DeviceTokenEntity>(entity =>

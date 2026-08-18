@@ -1,0 +1,159 @@
+@page "/memories"
+@using ADA_MKII_Core.Abstractions
+@using ADA_MKII_Core.Contracts
+@using ADA_MKII_UI_Shared.Components
+@inherits AuthenticatedPage
+@inject IMemoryStore Store
+
+<PageTitle>Memories — ADA</PageTitle>
+
+@if (!Ready)
+{
+    <p class="chat-empty">Loading…</p>
+    return;
+}
+
+@if (Unreachable)
+{
+    <div class="chat-offline" role="alert">
+        <h1>Cannot reach ADA</h1>
+        <p>No response from <strong>@Server.BaseAddress</strong>.</p>
+        <div class="chat-offline-actions">
+            <button type="button" class="composer-button" @onclick="RetryAsync">Try again</button>
+        </div>
+    </div>
+    return;
+}
+
+<div class="records">
+
+    <header class="records-head">
+        <h1>Memories</h1>
+        <input class="records-search" @bind="_query" @bind:event="oninput" @bind:after="SearchAsync"
+               placeholder="Search memories…" aria-label="Search memories" />
+    </header>
+
+    <p class="settings-hint">
+        What ADA has chosen to remember about you between conversations. It writes these
+        itself; deleting one makes it forget.
+    </p>
+
+    @if (Error is not null)
+    {
+        <p class="dash-error" role="alert">@Error</p>
+    }
+
+    <form class="records-form" @onsubmit="SaveAsync" @onsubmit:preventDefault>
+        <input class="records-input" @bind="_content" @bind:event="oninput"
+               placeholder="Add something for ADA to remember…" aria-label="Memory" disabled="@_saving" />
+        <input class="records-input" @bind="_tag" @bind:event="oninput"
+               placeholder="Tag (optional)" aria-label="Tag" disabled="@_saving" />
+        <div class="records-form-actions">
+            <button type="submit" class="composer-button" disabled="@(_saving || _content.Trim().Length == 0)">
+                Remember this
+            </button>
+        </div>
+    </form>
+
+    @if (_memories.Count == 0)
+    {
+        <p class="dash-empty">
+            @(string.IsNullOrWhiteSpace(_query) ? "Nothing remembered yet." : "Nothing matched that.")
+        </p>
+    }
+    else
+    {
+        <ul class="records-list">
+            @foreach (var memory in _memories)
+            {
+                <li class="records-item">
+                    <div class="records-item-body">
+                        <span class="records-item-content">@memory.Content</span>
+                        <span class="dash-item-meta">
+                            @(memory.Tag ?? "general") · noted @DateLabel(memory.CreatedUtc)
+                            @if (memory.LastRecalledUtc is { } recalled)
+                            {
+                                <text> · last used @DateLabel(recalled)</text>
+                            }
+                        </span>
+                    </div>
+                    <div class="records-item-actions">
+                        <button type="button" class="records-link records-danger"
+                                @onclick="() => ForgetAsync(memory)" disabled="@_saving">
+                            Forget
+                        </button>
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private const int PageSize = 100;
+
+    private IReadOnlyList<MemoryDto> _memories = [];
+    private string _content = string.Empty;
+    private string _tag = string.Empty;
+    private string _query = string.Empty;
+    private bool _saving;
+
+    protected override async Task LoadAsync() =>
+        _memories = string.IsNullOrWhiteSpace(_query)
+            ? await Store.ListRecentAsync(PageSize, CancellationToken.None)
+            : await Store.SearchAsync(_query, PageSize, CancellationToken.None);
+
+    private Task SearchAsync() => ReloadAsync();
+
+    private async Task SaveAsync()
+    {
+        var content = _content.Trim();
+        if (content.Length == 0 || _saving)
+        {
+            return;
+        }
+
+        _saving = true;
+
+        try
+        {
+            var tag = string.IsNullOrWhiteSpace(_tag) ? null : _tag.Trim();
+
+            await Store.CreateAsync(new CreateMemoryRequest(content, tag), CancellationToken.None);
+
+            _content = string.Empty;
+            _tag = string.Empty;
+            await ReloadAsync();
+        }
+        catch (ADA_MKII_Core.Client.AdaUnreachableException)
+        {
+            Error = "Not saved - the server did not respond.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task ForgetAsync(MemoryDto memory)
+    {
+        _saving = true;
+
+        try
+        {
+            await Store.DeleteAsync(memory.Id, CancellationToken.None);
+            await ReloadAsync();
+        }
+        catch (ADA_MKII_Core.Client.AdaUnreachableException)
+        {
+            Error = "Not deleted - the server did not respond.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private string DateLabel(DateTimeOffset instant) =>
+        Zone.ToLocal(instant).ToString("d MMM yyyy", null);
+}
