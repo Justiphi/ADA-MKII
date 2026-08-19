@@ -1,10 +1,13 @@
 using ADA_MKII_Core.Abstractions;
 using ADA_MKII_Core.Client;
 using ADA_MKII_Core.Notifications;
+using ADA_MKII_Core.Speech;
 using ADA_MKII_UI_Shared;
+using ADA_MKII_UI_Shared.Speech;
 using ADA_MKII_Web.Auth;
 using ADA_MKII_Web.Components;
 using ADA_MKII_Web.Speech;
+using Whisper.net.Ggml;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,14 +24,72 @@ var baseAddress = builder.Configuration["Ada:Client:BaseAddress"]
 
 builder.Services.AddSingleton<IServerAddressProvider>(new FixedServerAddressProvider(new Uri(baseAddress)));
 builder.Services.AddAdaClient();
-builder.Services.AddScoped<ISessionStore, ScopedSessionStore>();
+
+// Unattended displays are the exception: a smart mirror has no keyboard to sign
+// in with and loses its circuit on every reboot. Given a provisioned device
+// token it comes back signed in; without one this stays an ordinary browser
+// session that forgets on reload. See KioskSessionStore for the trade.
+var kioskToken = builder.Configuration["Ada:Kiosk:DeviceToken"];
+
+if (string.IsNullOrWhiteSpace(kioskToken))
+{
+    builder.Services.AddScoped<ISessionStore, ScopedSessionStore>();
+}
+else
+{
+    builder.Services.AddScoped<ISessionStore>(_ => new KioskSessionStore(kioskToken));
+}
+
 builder.Services.AddAdaSharedUi();
 
-// Voice, supplied by this head. Scoped because the JS module reference and the
+// Voice. Two quite different arrangements share one pair of abstractions.
+//
+// Normally the browser owns the microphone and the speakers, and this head just
+// drives them over JS interop - scoped, because the module reference and the
 // active recogniser belong to one circuit.
-builder.Services.AddScoped<WebSpeechModule>();
-builder.Services.AddScoped<ISpeechToTextService, WebSpeechToTextService>();
-builder.Services.AddScoped<ITextToSpeechService, WebSpeechSynthesisService>();
+//
+// On a device that owns real hardware - a Raspberry Pi behind a smart mirror -
+// the browser is the wrong place for both. Its Chromium cannot do speech
+// recognition at all, because distribution builds ship without the credentials
+// Google's speech service needs, and routing a spoken reply out through the
+// browser to reach speakers attached to this very machine is a detour. So the
+// audio path skips the browser: ALSA in, speech-dispatcher out, Whisper in
+// between. Those are singletons because there is one set of hardware, however
+// many circuits are open.
+if (builder.Configuration.GetValue("Ada:Speech:OnDevice", defaultValue: false))
+{
+    builder.Services.AddSingleton(new AudioCaptureOptions(
+        builder.Configuration["Ada:Speech:AlsaDevice"] ?? "default"));
+
+    builder.Services.AddSingleton(new WhisperOptions(
+        builder.Configuration["Ada:Speech:ModelDirectory"]
+            ?? Path.Combine(AppContext.BaseDirectory, "speech"),
+        builder.Configuration.GetValue("Ada:Speech:Model", defaultValue: GgmlType.Tiny)));
+
+    builder.Services.AddSingleton<IAudioCapture, ArecordAudioCapture>();
+    builder.Services.AddSingleton<ISpeechRecognitionEngine, WhisperRecognitionEngine>();
+    builder.Services.AddSingleton<ISpeechToTextService, EngineSpeechToTextService>();
+    builder.Services.AddSingleton<ITextToSpeechService, SpeechDispatcherTextToSpeechService>();
+
+    // A wake word only where there is no button to press. Registered here and
+    // nowhere else, so every other head keeps push-to-talk and phase 1's
+    // reasoning stands untouched.
+    if (builder.Configuration.GetValue("Ada:Speech:WakeWord:Enabled", defaultValue: false))
+    {
+        builder.Services.AddSingleton(new WakeWordOptions(
+            builder.Configuration["Ada:Speech:WakeWord:Phrase"] ?? "hey ada",
+            builder.Configuration.GetValue("Ada:Speech:WakeWord:WindowSeconds", defaultValue: 3d),
+            builder.Configuration.GetValue("Ada:Speech:WakeWord:MinimumLevel", defaultValue: 0.015d)));
+
+        builder.Services.AddSingleton<IWakeWordDetector, WhisperWakeWordDetector>();
+    }
+}
+else
+{
+    builder.Services.AddScoped<WebSpeechModule>();
+    builder.Services.AddScoped<ISpeechToTextService, WebSpeechToTextService>();
+    builder.Services.AddScoped<ITextToSpeechService, WebSpeechSynthesisService>();
+}
 
 // A browser tab cannot be woken to deliver a reminder, so this head schedules
 // nothing. The shared UI still resolves the abstraction and simply skips the

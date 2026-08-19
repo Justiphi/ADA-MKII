@@ -1050,3 +1050,140 @@ body {
         border-top: 1px solid rgba(255, 255, 255, 0.07);
     }
 }
+
+/* ---------------------------------------------------------------------------
+   Smart mirror.
+
+   A two-way mirror passes only a fraction of the light behind it, so anything
+   mid-grey reads as black through the glass. This palette is deliberately not
+   the app's: pure black ground, near-white text, no surfaces, no borders, no
+   accent colour. Only what is lit shows, which is the whole visual trick.
+
+   Sizes are in vw/vmin rather than rem because the panel is a fixed display
+   read from across a room - it should fill whatever it is put on.
+   --------------------------------------------------------------------------- */
+
+.mirror-shell {
+    min-height: 100vh;
+    background-color: #000;
+    color: #f4f4f5;
+}
+
+.mirror {
+    display: flex;
+    flex-direction: column;
+    gap: 4vmin;
+    min-height: 100vh;
+    padding: 6vmin 7vmin;
+}
+
+.mirror-status {
+    padding: 8vmin;
+    color: #6b6b73;
+    font-size: 3vmin;
+}
+
+.mirror-clock {
+    line-height: 1;
+}
+
+.mirror-time {
+    font-size: 18vmin;
+    font-weight: 200;
+    /* Tabular figures stop the whole clock shifting when a 1 becomes a 2. */
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+
+.mirror-date {
+    margin-top: 1.5vmin;
+    color: #9a9aa3;
+    font-size: 3.4vmin;
+    font-weight: 300;
+}
+
+.mirror-weather {
+    display: flex;
+    align-items: center;
+    gap: 2.5vmin;
+    font-weight: 300;
+}
+
+.mirror-wx-icon {
+    font-size: 7vmin;
+    line-height: 1;
+}
+
+.mirror-wx-temp {
+    font-size: 7vmin;
+    font-variant-numeric: tabular-nums;
+}
+
+.mirror-wx-summary {
+    color: #9a9aa3;
+    font-size: 3.2vmin;
+}
+
+.mirror-panels {
+    display: grid;
+    /* Collapses to one column on a portrait-mounted mirror, which is the more
+       common build. */
+    grid-template-columns: repeat(auto-fit, minmax(38vmin, 1fr));
+    gap: 5vmin;
+    margin-top: auto;
+}
+
+.mirror-panel h2 {
+    margin: 0 0 2vmin;
+    color: #6b6b73;
+    font-size: 2.4vmin;
+    font-weight: 400;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+}
+
+.mirror-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.6vmin;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.mirror-list li {
+    display: flex;
+    gap: 2vmin;
+    font-size: 3vmin;
+    font-weight: 300;
+}
+
+.mirror-when {
+    flex: 0 0 auto;
+    color: #9a9aa3;
+    font-variant-numeric: tabular-nums;
+}
+
+.mirror-what {
+    /* One line each: a wrapped title on a glanceable display is a lost line. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mirror-empty {
+    margin: 0;
+    color: #52525a;
+    font-size: 2.8vmin;
+    font-weight: 300;
+}
+
+.mirror-voice {
+    align-self: flex-start;
+    padding: 1.4vmin 3vmin;
+    border-radius: 999px;
+    background-color: #1c1c20;
+    color: #f4f4f5;
+    font-size: 2.8vmin;
+    font-weight: 300;
+}

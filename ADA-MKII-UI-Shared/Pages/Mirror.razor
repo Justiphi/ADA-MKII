@@ -1,0 +1,372 @@
+@page "/mirror"
+@using ADA_MKII_Core.Abstractions
+@using ADA_MKII_Core.Contracts
+@using ADA_MKII_UI_Shared.Components
+@layout MirrorLayout
+@inherits AuthenticatedPage
+@implements IDisposable
+@inject ICalendarStore Calendar
+@inject INoteStore Notes
+@inject IWeatherProvider Weather
+@inject IAssistantPipeline Pipeline
+@inject IServiceProvider Services
+
+<PageTitle>ADA</PageTitle>
+
+@*
+    Read from across a room, through glass that passes only a fraction of the
+    light. Everything here is large, high-contrast and sparse for that reason:
+    a mirror is glanced at, not read.
+*@
+
+@if (!Ready)
+{
+    <p class="mirror-status">Connecting…</p>
+    return;
+}
+
+@if (Unreachable)
+{
+    @* No retry button - there is nobody to press it. The poll recovers on its own. *@
+    <p class="mirror-status">Cannot reach ADA.</p>
+    return;
+}
+
+<div class="mirror">
+
+    <div class="mirror-clock">
+        <div class="mirror-time">@_now.ToString("HH:mm", null)</div>
+        <div class="mirror-date">@_now.ToString("dddd d MMMM", null)</div>
+    </div>
+
+    @if (_weather is { } weather)
+    {
+        <div class="mirror-weather">
+            <span class="mirror-wx-icon">@WeatherCodes.Icon(weather.Current.WeatherCode)</span>
+            <span class="mirror-wx-temp">@Math.Round(weather.Current.TemperatureC)°</span>
+            <span class="mirror-wx-summary">@weather.Current.Summary</span>
+        </div>
+    }
+
+    <div class="mirror-panels">
+
+        <section class="mirror-panel">
+            <h2>Today</h2>
+            @if (_today.Count == 0)
+            {
+                <p class="mirror-empty">Nothing scheduled.</p>
+            }
+            else
+            {
+                <ul class="mirror-list">
+                    @foreach (var occurrence in _today)
+                    {
+                        <li>
+                            <span class="mirror-when">@TimeLabel(occurrence)</span>
+                            <span class="mirror-what">@occurrence.Title</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+
+        <section class="mirror-panel">
+            <h2>Notes</h2>
+            @if (_notes.Count == 0)
+            {
+                <p class="mirror-empty">Nothing noted.</p>
+            }
+            else
+            {
+                <ul class="mirror-list">
+                    @foreach (var note in _notes)
+                    {
+                        <li><span class="mirror-what">@note.Title</span></li>
+                    }
+                </ul>
+            }
+        </section>
+
+    </div>
+
+    @if (_voice is not null)
+    {
+        @* Present only while something is actually happening, so the glass stays
+           clean when the mirror is just a mirror. *@
+        <div class="mirror-voice">@_voice</div>
+    }
+
+</div>
+
+@code {
+    private const int PanelCount = 4;
+
+    /// <summary>
+    /// How often the clock re-renders. A mirror shows minutes, so ticking every
+    /// second would be 59 wasted renders a minute over a Blazor circuit.
+    /// </summary>
+    private static readonly TimeSpan ClockInterval = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// How often the data behind the panels is refetched. Nobody is going to
+    /// reload this page, so it has to age itself out.
+    /// </summary>
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(5);
+
+    /// <summary>How long an answer stays on the glass before the mirror clears itself.</summary>
+    private static readonly TimeSpan AnswerLinger = TimeSpan.FromSeconds(12);
+
+    /// <summary>
+    /// A ceiling on one spoken request. There is no stop button, so something has
+    /// to end the recording.
+    /// </summary>
+    private static readonly TimeSpan UtteranceLimit = TimeSpan.FromSeconds(12);
+
+    private static readonly System.Globalization.CultureInfo Culture =
+        System.Globalization.CultureInfo.GetCultureInfo("en-US");
+
+    private IReadOnlyList<EventOccurrenceDto> _today = [];
+    private IReadOnlyList<NoteDto> _notes = [];
+    private WeatherDto? _weather;
+
+    private DateTimeOffset _now;
+
+    /// <summary>What the mirror is doing out loud, or null when it is idle.</summary>
+    private string? _voice;
+
+    private Guid? _conversationId;
+
+    private PeriodicTimer? _clock;
+    private PeriodicTimer? _refresh;
+    private CancellationTokenSource? _loops;
+
+    protected override async Task LoadAsync()
+    {
+        _now = Zone.ToLocal(Clock.GetUtcNow());
+
+        var dayStart = Zone.TodayStart(Clock);
+
+        _today = await Calendar.ListOccurrencesAsync(dayStart, dayStart.AddDays(1), CancellationToken.None);
+        _notes = await Notes.ListAsync(PanelCount, CancellationToken.None);
+
+        await LoadWeatherAsync();
+    }
+
+    /// <summary>
+    /// Isolated exactly as the dashboard isolates it: a weather outage should
+    /// cost the weather line, not the whole mirror.
+    /// </summary>
+    private async Task LoadWeatherAsync()
+    {
+        try
+        {
+            _weather = await Weather.GetForecastAsync(null, CancellationToken.None);
+        }
+        catch (ADA_MKII_Core.Client.AdaApiException)
+        {
+            _weather = null;
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        _loops = new CancellationTokenSource();
+
+        _ = RunClockAsync(_loops.Token);
+        _ = RunRefreshAsync(_loops.Token);
+        _ = RunVoiceAsync(_loops.Token);
+    }
+
+    /// <summary>
+    /// Wake, listen, answer, repeat.
+    ///
+    /// The three services are resolved optionally rather than injected: a mirror
+    /// with no microphone is an ordinary configuration, and every other head
+    /// composes no wake-word detector at all. Missing pieces simply mean this
+    /// loop never starts.
+    /// </summary>
+    private async Task RunVoiceAsync(CancellationToken cancellationToken)
+    {
+        var detector = Services.GetService(typeof(IWakeWordDetector)) as IWakeWordDetector;
+        var listener = Services.GetService(typeof(ISpeechToTextService)) as ISpeechToTextService;
+        var speaker = Services.GetService(typeof(ITextToSpeechService)) as ITextToSpeechService;
+
+        if (detector is not { IsSupported: true } || listener is not { IsSupported: true })
+        {
+            return;
+        }
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await SetVoiceAsync(null);
+
+                if (!await detector.WaitForWakeWordAsync(cancellationToken))
+                {
+                    return;
+                }
+
+                await SetVoiceAsync("Listening…");
+
+                var heard = await ListenAsync(listener, cancellationToken);
+
+                if (string.IsNullOrWhiteSpace(heard))
+                {
+                    continue;
+                }
+
+                await SetVoiceAsync(heard);
+
+                var reply = await AskAsync(heard, cancellationToken);
+
+                if (!string.IsNullOrWhiteSpace(reply))
+                {
+                    await SetVoiceAsync(reply);
+
+                    if (speaker is { IsSupported: true })
+                    {
+                        await speaker.SpeakAsync(reply, cancellationToken);
+                    }
+
+                    // Leave the answer on the glass briefly, then clear it. A
+                    // mirror that keeps the last thing it said forever stops
+                    // being a mirror.
+                    await Task.Delay(AnswerLinger, cancellationToken);
+                }
+
+                // The calendar or notes may have changed as a result of the turn.
+                await ReloadAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (Exception ex) when (ex is ADA_MKII_Core.Client.AdaUnreachableException
+                or ADA_MKII_Core.Client.AdaApiException)
+            {
+                // Nobody is here to retry, so say so briefly and go back to
+                // waiting rather than ending the loop.
+                await SetVoiceAsync("I could not reach the server.");
+                await Task.Delay(AnswerLinger, CancellationToken.None);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Records until the speaker stops, and returns what was said.
+    ///
+    /// The listen is bounded by <see cref="UtteranceLimit"/> because there is no
+    /// button to end it: cancelling the token is what stops the recording, and
+    /// the engine transcribes whatever was captured up to that point.
+    /// </summary>
+    private static async Task<string?> ListenAsync(
+        ISpeechToTextService listener,
+        CancellationToken cancellationToken)
+    {
+        using var utterance = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        utterance.CancelAfter(UtteranceLimit);
+
+        string? text = null;
+
+        await foreach (var partial in listener.ListenAsync(Culture, utterance.Token))
+        {
+            if (partial.IsFinal)
+            {
+                text = partial.Text;
+            }
+        }
+
+        return text;
+    }
+
+    /// <summary>Runs one turn through the pipeline and returns the prose.</summary>
+    private async Task<string> AskAsync(string message, CancellationToken cancellationToken)
+    {
+        var reply = new System.Text.StringBuilder();
+
+        var request = new ChatRequest(_conversationId, message) { TimeZoneId = Zone.Id };
+
+        await foreach (var evt in Pipeline.RunAsync(request, cancellationToken))
+        {
+            switch (evt.Type)
+            {
+                case ChatStreamEvent.DeltaType:
+                    reply.Append(evt.Text);
+                    break;
+
+                case ChatStreamEvent.ToolType:
+                    await SetVoiceAsync("…");
+                    break;
+
+                case ChatStreamEvent.DoneType:
+                    // Kept so the mirror holds one thread of conversation rather
+                    // than starting afresh every time it is spoken to.
+                    _conversationId = evt.ConversationId ?? _conversationId;
+                    break;
+
+                default:
+                    break;
+            }
+        }
+
+        return reply.ToString().Trim();
+    }
+
+    private async Task SetVoiceAsync(string? text)
+    {
+        _voice = text;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RunClockAsync(CancellationToken cancellationToken)
+    {
+        _clock = new PeriodicTimer(ClockInterval);
+
+        try
+        {
+            while (await _clock.WaitForNextTickAsync(cancellationToken))
+            {
+                _now = Zone.ToLocal(Clock.GetUtcNow());
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The page went away. Nothing to clean up beyond the timer itself.
+        }
+    }
+
+    private async Task RunRefreshAsync(CancellationToken cancellationToken)
+    {
+        _refresh = new PeriodicTimer(RefreshInterval);
+
+        try
+        {
+            while (await _refresh.WaitForNextTickAsync(cancellationToken))
+            {
+                // ReloadAsync already maps an unreachable server to a state
+                // rather than an exception, which is what lets the mirror
+                // recover on its own when the server comes back.
+                await ReloadAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private string TimeLabel(EventOccurrenceDto occurrence) =>
+        occurrence.IsAllDay ? "all day" : Zone.ToLocal(occurrence.StartsUtc).ToString("HH:mm", null);
+
+    public void Dispose()
+    {
+        _loops?.Cancel();
+        _loops?.Dispose();
+        _clock?.Dispose();
+        _refresh?.Dispose();
+    }
+}

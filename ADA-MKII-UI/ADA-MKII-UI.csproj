@@ -69,6 +69,12 @@
 		     the app is unpackaged. -->
 		<PackageReference Include="Plugin.Maui.Audio" />
 		<PackageReference Include="Plugin.LocalNotification" />
+		<!--
+			The engine itself lives in ADA-MKII-UI-Shared, which brings these in
+			transitively. They stay declared here so the native binaries are packaged
+			for this head's RIDs - Android in particular does not reliably pick them
+			up through a project reference alone.
+		-->
 		<PackageReference Include="Whisper.net" />
 		<PackageReference Include="Whisper.net.Runtime" />
 	</ItemGroup>

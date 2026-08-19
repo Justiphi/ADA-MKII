@@ -18,6 +18,15 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+
+    <!--
+      On-device speech recognition, shared by both UI heads: MAUI on Windows and
+      Android, and the web head when it runs on a Raspberry Pi where the
+      browser's speech API is unavailable. Neither is a MAUI dependency and
+      neither is platform-conditional, so this does not breach the rules above.
+    -->
+    <PackageReference Include="Whisper.net" />
+    <PackageReference Include="Whisper.net.Runtime" />
   </ItemGroup>
 
   <ItemGroup>

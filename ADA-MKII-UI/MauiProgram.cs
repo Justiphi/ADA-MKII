@@ -5,6 +5,7 @@ using ADA_MKII_UI.Auth;
 using ADA_MKII_UI.Notifications;
 using ADA_MKII_UI.Speech;
 using ADA_MKII_UI_Shared;
+using ADA_MKII_UI_Shared.Speech;
 using Plugin.LocalNotification;
 using Plugin.Maui.Audio;
 using CommunityToolkit.Maui;
@@ -60,6 +61,12 @@ public static class MauiProgram
         // ISpeechRecognitionEngine knows which engine is in use.
         builder.Services.AddSingleton(AudioManager.Current);
         builder.Services.AddSingleton<IAudioCapture, MauiAudioCapture>();
+
+        // The engine is shared with the web head; only the model location is
+        // ours to decide, because only this head knows where it may write.
+        builder.Services.AddSingleton(new WhisperOptions(
+            Path.Combine(FileSystem.AppDataDirectory, "speech")));
+
         builder.Services.AddSingleton<ISpeechRecognitionEngine, WhisperRecognitionEngine>();
         builder.Services.AddSingleton<ISpeechToTextService, EngineSpeechToTextService>();
 

@@ -1,0 +1,15 @@
+@inherits LayoutComponentBase
+
+@*
+    Chrome-free layout for an unattended display.
+
+    MainLayout exists for someone holding the device: a wordmark, navigation, an
+    account name, a sign-out button. A smart mirror has none of those affordances
+    and no one to use them - what shows through the glass should be the
+    information and nothing else. It deliberately does not inherit MainLayout, so
+    no navigation can leak onto the glass by accident later.
+*@
+
+<div class="mirror-shell">
+    @Body
+</div>

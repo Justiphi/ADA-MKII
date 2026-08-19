@@ -1,10 +1,28 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using ADA_MKII_Core.Abstractions;
 using Whisper.net;
 using Whisper.net.Ggml;
 
-namespace ADA_MKII_UI.Speech;
+namespace ADA_MKII_UI_Shared.Speech;
+
+/// <summary>
+/// Where the engine keeps its model, and which one to use.
+///
+/// The directory is supplied by the head because only the head knows where it
+/// may write: MAUI has an app data directory, and a Linux service has whatever
+/// its unit file grants it. Keeping it a parameter is what lets this class be
+/// shared rather than duplicated per head.
+/// </summary>
+/// <param name="ModelDirectory">A writable directory for the downloaded model.</param>
+/// <param name="Model">
+/// Base is the smallest model that transcribes ordinary speech acceptably; Tiny
+/// is noticeably worse on anything but clear, close speech. On a Raspberry Pi,
+/// Tiny is the realistic choice for anything near real time - Base runs, but not
+/// quickly.
+/// </param>
+public sealed record WhisperOptions(string ModelDirectory, GgmlType Model = GgmlType.Base);
 
 /// <summary>
 /// On-device speech recognition with Whisper.net.
@@ -15,19 +33,18 @@ namespace ADA_MKII_UI.Speech;
 /// runs locally, needs no key, and keeps audio on the device - which is the
 /// principle the architecture already commits to for speech.
 ///
+/// It lives here rather than in a head because both UI heads now need it: the
+/// MAUI app on Windows and Android, and the web head when it runs on a Raspberry
+/// Pi driving a smart mirror, where the browser's speech API is unavailable.
+/// It lives here rather than in Core because Core is not allowed a dependency
+/// like Whisper.net.
+///
 /// The trade-off is that it transcribes a finished recording rather than
 /// streaming, so <see cref="SupportsInterimResults"/> is false and the user sees
 /// their words once, at the end.
 /// </summary>
-public sealed class WhisperRecognitionEngine : ISpeechRecognitionEngine, IAsyncDisposable
+public sealed class WhisperRecognitionEngine(WhisperOptions options) : ISpeechRecognitionEngine, IAsyncDisposable
 {
-    /// <summary>
-    /// Base is the smallest model that transcribes ordinary speech acceptably;
-    /// Tiny is noticeably worse on anything but clear, close speech. Roughly
-    /// 140 MB, downloaded once and cached.
-    /// </summary>
-    private const GgmlType Model = GgmlType.Base;
-
     private readonly SemaphoreSlim _prepareLock = new(1, 1);
 
     private WhisperFactory? _factory;
@@ -36,12 +53,14 @@ public sealed class WhisperRecognitionEngine : ISpeechRecognitionEngine, IAsyncD
 
     /// <summary>
     /// The native binaries ship for arm64 and x86/x64 only. On anything else the
-    /// UI must hide the microphone rather than fail at first use.
+    /// UI must hide the microphone rather than fail at first use. This is what
+    /// rules out a 32-bit Raspberry Pi OS: the runtime has a linux-arm64 build,
+    /// but the process has to be 64-bit to load it.
     /// </summary>
-    public bool IsSupported => System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture
-        is System.Runtime.InteropServices.Architecture.X64
-        or System.Runtime.InteropServices.Architecture.Arm64
-        or System.Runtime.InteropServices.Architecture.X86;
+    public bool IsSupported => RuntimeInformation.ProcessArchitecture
+        is Architecture.X64
+        or Architecture.Arm64
+        or Architecture.X86;
 
     public bool SupportsInterimResults => false;
 
@@ -76,7 +95,7 @@ public sealed class WhisperRecognitionEngine : ISpeechRecognitionEngine, IAsyncD
                 var partial = path + ".partial";
 
                 await using (var source = await WhisperGgmlDownloader.Default
-                    .GetGgmlModelAsync(Model, cancellationToken: cancellationToken))
+                    .GetGgmlModelAsync(options.Model, cancellationToken: cancellationToken))
                 await using (var destination = File.Create(partial))
                 {
                     await source.CopyToAsync(destination, cancellationToken);
@@ -125,10 +144,9 @@ public sealed class WhisperRecognitionEngine : ISpeechRecognitionEngine, IAsyncD
         yield return new SpeechPartial(text.ToString().Trim(), IsFinal: true);
     }
 
-    private static string ModelPath => Path.Combine(
-        FileSystem.AppDataDirectory,
-        "speech",
-        $"ggml-{Model.ToString().ToLowerInvariant()}.bin");
+    private string ModelPath => Path.Combine(
+        options.ModelDirectory,
+        $"ggml-{options.Model.ToString().ToLowerInvariant()}.bin");
 
     public ValueTask DisposeAsync()
     {

@@ -139,6 +139,7 @@ All interfaces live in `ADA_MKII_Core.Abstractions`.
 | `ICalendarStore` | Series CRUD plus `ListOccurrencesAsync(from, to, ct)` and `CancelOccurrenceAsync` | `SqlCalendarStore` (Data), `HttpCalendarStore` (Core) |
 | `IMemoryStore` | `Create` / `ListRecent` / `Search` / `Delete` | `SqlMemoryStore` (Data), `HttpMemoryStore` (Core) |
 | `IWeatherProvider` | `GetForecastAsync(location, ct)`; null location means the account's setting | `OpenMeteoWeatherProvider` (API), `HttpWeatherProvider` (Core) |
+| `IWakeWordDetector` | `WaitForWakeWordAsync(ct)` — completes when the phrase is heard | `WhisperWakeWordDetector` (UI-Shared). Composed **only** by a head with no button to press; see the smart mirror below |
 
 **Critical design note:** `IConversationStore`, `ISettingsStore` **and `IAssistantPipeline`** each have a server-side implementation and an HTTP client-side one. That symmetry is what lets `UI-Shared` be byte-identical across every head: the UI depends only on the abstraction and never learns whether orchestration happens in-process or across the network.
 
@@ -251,7 +252,8 @@ Push-to-talk only. **No wake word** in phase 1 — the battery and false-trigger
 |---|---|---|
 | MAUI (Win/Android) | **Whisper.net**, on-device, via `ISpeechRecognitionEngine` ✅ | `Microsoft.Maui.Media.TextToSpeech.Default` ✅ |
 | Web / Linux | JS module wrapping `webkitSpeechRecognition`, partials returned via `DotNetObjectReference` ✅ | `window.speechSynthesis` ✅ |
-| Web fallback (Firefox) | `MediaRecorder` → `POST /api/speech/stt` | `/api/speech/tts` → `audio/mpeg` in an `<audio>` element |
+| Web fallback (Firefox) | **Not built.** `POST /api/speech/stt` was specified and never implemented | **Not built.** `/api/speech/tts` likewise |
+| Pi / smart mirror | `arecord` (ALSA) → Whisper, in the web head's own process ✅ | `spd-say` (speech-dispatcher) ✅ |
 | Discord | `NullSpeechToTextService` | `NullTextToSpeechService` |
 
 ### Why Whisper on MAUI, and the seam around it
@@ -341,6 +343,12 @@ Critical path is **0 → 1 → 2 → 3 → 4**. Voice, Android and Discord are l
     Two things only running it could show. First, **`ReminderSync` never ran at all**, on any head: `MainLayout` gated it on `firstRender`, but a restored session is established asynchronously by the first authenticated page, so nobody is signed in at that render and `firstRender` never comes round again. It is now gated on `Session.IsSignedIn` with a once-per-session flag. Second, **the inexact windows are wide** — `+1m22s` and `+25m22s` were observed on two alarms. That is the price of avoiding `SCHEDULE_EXACT_ALARM`, and it means "15 minutes before" is a hint, not a promise; a reminder can arrive well after the event has started. Do not tighten this by requesting the restricted permission without deciding that the precision is worth it.
 11. **Weather — COMPLETE.** `OpenMeteoWeatherProvider` in API, `GET /api/weather`, `HttpWeatherProvider` in Core, a `get_weather` tool, a dashboard card with current conditions and a five-day forecast, and a `weather.location` setting defaulting to `Tauranga, NZ`. Verified live against Open-Meteo, including the country-disambiguation case.
 12. **Discord.** Convert to a generic-host worker; slash commands → HTTP client → Server. Nothing depends on it; it is the proof that the client/server split is clean.
+
+13. **Raspberry Pi smart mirror — built, never run on a Pi.** A wall-mounted mirror is a head with no keyboard, no button and no browser speech, so it needed four things. `KioskSessionStore` takes a provisioned device token from configuration, because `ScopedSessionStore` deliberately forgets on reload and a mirror that reboots would sit on the login screen forever. `/mirror` renders through `MirrorLayout`, which has no navigation at all — chrome-free by construction rather than by CSS. `ArecordAudioCapture` and `SpeechDispatcherTextToSpeechService` give the web head real hardware, and `WhisperWakeWordDetector` lets it wait to be spoken to.
+
+    **Speech deliberately skips the browser here.** Chromium on Raspberry Pi OS cannot do speech recognition at all — distribution builds ship without the credentials Google's speech service needs — and the documented `/api/speech/*` fallback in the voice table above **does not exist**; it was never built. Since the web head runs *on* the Pi, it owns the microphone directly: ALSA in, `speech-dispatcher` out, Whisper in between, no audio leaving the device. `WhisperRecognitionEngine` moved from the MAUI head into `UI-Shared` for this, because both UI heads now need it and Core is not allowed a dependency like Whisper.net. Its `linux-arm64` binaries are why the Pi must run a 64-bit OS.
+
+    **Only run this on hardware you physically control.** Anyone who can reach the page is that account, with no login. All of it is off by default: `Ada:Kiosk:DeviceToken`, `Ada:Speech:OnDevice` and `Ada:Speech:WakeWord:Enabled` are each opt-in, so every other head keeps browser speech, push-to-talk and a session that forgets. Runbook in `deploy/RASPBERRY-PI-MIRROR.md`. **No part of the speech path has run on a Pi** — this machine has neither one nor a microphone, so only the build and the non-voice mirror are verified.
 
 ## Risks and standing rules
 
