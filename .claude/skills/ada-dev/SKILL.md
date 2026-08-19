@@ -117,6 +117,14 @@ there works in the MAUI `BlazorWebView` too.
 
 ### Running the Android head on an emulator
 
+The AVD is `pixel_8_pro_-_api_36_0` (Pixel 8 Pro, Android 16 / API 36, x86_64).
+**Two Android SDKs are installed on this machine** - the user-local one at
+`%LOCALAPPDATA%\Android\Sdk` and Visual Studio's under
+`C:\Program Files (x86)\Android\android-sdk`. The AVD itself lives in the
+shared `%USERPROFILE%\.android\avd`, so it is reachable from either; the
+user-local `platform-tools\adb.exe` is what these instructions assume. Note
+`ANDROID_HOME` is not set, so tools that rely on it need an explicit path.
+
 ```bash
 dotnet build ADA-MKII-UI/ADA-MKII-UI.csproj -f net10.0-android -c Debug -p:EmbedAssembliesIntoApk=true
 ```
