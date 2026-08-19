@@ -3,4 +3,9 @@
     <color name="colorPrimary">#512BD4</color>
     <color name="colorPrimaryDark">#2B0B98</color>
     <color name="colorAccent">#2B0B98</color>
+
+    <!-- Matches the ada-bg custom property in the shared stylesheet. The system bars are
+         transparent under edge-to-edge, so this is what shows through behind
+         them once the content view is inset clear of the bars. -->
+    <color name="ada_window_background">#17171A</color>
 </resources>

@@ -115,6 +115,56 @@ Develop UI against the **web head first**. It hot-reloads and needs no device
 deploy, and because the components live in `ADA-MKII-UI-Shared`, whatever works
 there works in the MAUI `BlazorWebView` too.
 
+### Running the Android head on an emulator
+
+```bash
+dotnet build ADA-MKII-UI/ADA-MKII-UI.csproj -f net10.0-android -c Debug -p:EmbedAssembliesIntoApk=true
+```
+
+**`-p:EmbedAssembliesIntoApk=true` is not optional if you install the APK
+yourself.** A Debug build otherwise uses Fast Deployment, which leaves the
+managed assemblies *out* of the package and expects `dotnet build -t:Run` to push
+them to the device separately. Install that APK by hand — with `adb install` or
+any MCP tool — and the app dies on launch, before any of your code runs:
+
+```
+F/monodroid: No assemblies found in '/data/user/0/io.github.justiphi.ada/files/.__override__/x86_64'.
+             Assuming this is part of Fast Deployment. Exiting...
+```
+
+It looks like a signing or architecture fault and is neither. The flag takes the
+APK from ~15 MB to ~93 MB, which is the tell that the assemblies are now in it.
+Do not add `AndroidFastDeploymentType` — it is deprecated and warns.
+
+Then install and launch. The emulator reaches a server on the host loopback at
+**`10.0.2.2`**, which is already the app's default and is one of the two hosts
+allowed cleartext by `network_security_config.xml`:
+
+```bash
+adb install -r ADA-MKII-UI/bin/Debug/net10.0-android/io.github.justiphi.ada-Signed.apk
+```
+
+The launcher activity is `io.github.justiphi.ada/crc646cd1607415a9f99c.MainActivity`
+— the CRC prefix is generated, so resolve it rather than hardcoding it:
+
+```bash
+adb shell cmd package resolve-activity --brief io.github.justiphi.ada
+```
+
+Accounts still come only from DataManager, so create one there before signing in;
+`/api/auth/login` has no registration path by design.
+
+Checking reminders without waiting for one to arrive:
+
+```bash
+adb shell "dumpsys alarm | grep -A2 ScheduledAlarmReceiver"
+```
+
+A scheduled reminder shows as an `RTC_WAKEUP` against
+`plugin.LocalNotification.ScheduledAlarmReceiver` at `start - ReminderMinutesBefore`.
+Its `window=` value is the inexact slack, which is routinely minutes and can be
+tens of minutes.
+
 ## Smoke-testing the API
 
 The server requires a device bearer token on everything except `/health`.

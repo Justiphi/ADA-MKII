@@ -38,20 +38,37 @@
     protected override void OnInitialized() => Session.Changed += OnSessionChanged;
 
     /// <summary>
-    /// Hands upcoming reminders to the device once the app is up.
+    /// Whether this session has already handed its reminders over. The sync is
+    /// throttled by time, but only once it has *succeeded* - without this flag an
+    /// offline device would retry on every single render.
+    /// </summary>
+    private bool _remindersRequested;
+
+    /// <summary>
+    /// Hands upcoming reminders to the device once the user is signed in.
     ///
     /// Here rather than on a page because it must happen wherever the user lands,
     /// and here rather than in OnInitialized because on MAUI this is the point at
     /// which a scheduler may prompt for permission. It is throttled and does
     /// nothing at all on a head that cannot schedule, so the cost on the web is a
     /// single branch.
+    ///
+    /// **Deliberately not gated on <c>firstRender</c>.** A restored session is
+    /// established asynchronously by the first authenticated page, so at the
+    /// layout's first render nobody is signed in yet and there is nothing to
+    /// schedule - and firstRender never comes round again. Gating on it meant the
+    /// sync never ran at all, on any head: no permission prompt, no reminders.
+    /// The render that follows sign-in is the earliest point there is anything to
+    /// hand over.
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || !Session.IsSignedIn)
+        if (!Session.IsSignedIn || _remindersRequested)
         {
             return;
         }
+
+        _remindersRequested = true;
 
         await Reminders.SyncIfStaleAsync(CancellationToken.None);
     }
@@ -62,6 +79,9 @@
     {
         await Auth.LogoutAsync(CancellationToken.None);
         Session.SignedOut();
+
+        // So that signing in again - as anyone - hands reminders over afresh.
+        _remindersRequested = false;
         Navigation.NavigateTo("/login");
     }
 
